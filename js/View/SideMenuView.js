@@ -1,6 +1,6 @@
 //#include("/View/View.js");
 
-var SideMenuView = (function(){
+var SideMenuView = (function() {
 
 	function SideMenuView() {
 		this.super();
