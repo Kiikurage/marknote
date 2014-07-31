@@ -562,52 +562,52 @@
 	IPubSub.implement(View.prototype);
 
 	View.prototype.append = View.prototype.appendChild = function(child) {
-		child.appendTo(this.$base);
+		child.appendTo(this.__$base);
 	};
 
 	View.prototype.appendTo = function(parent) {
-		parent.appendChild(this.$base);
+		parent.appendChild(this.__$base);
 	};
 
 	View.prototype.insertBefore = function(refElement) {
-		this.$base.insertBefore(refElement);
+		this.__$base.insertBefore(refElement);
 	};
 
 	View.prototype.insertAfter = function(refElement) {
-		this.$base.insertAfter(refElement);
+		this.__$base.insertAfter(refElement);
 	};
 
 	View.prototype.setID = function(id) {
-		this.$base.attr("id", id);
+		this.__$base.attr("id", id);
 	};
 
 	return View;
 }());
 ;var ToolbarView = (function() {
 
-    function ToolbarView() {
-        this.super();
+	function ToolbarView() {
+		this.super();
 
-        this.$base = $("<div class='ToolbarView-base'></div>");
-    }
-    extendClass(ToolbarView, View);
+		this.__$base = $("<div class='ToolbarView-base'></div>");
+	}
+	extendClass(ToolbarView, View);
 
-    return ToolbarView;
+	return ToolbarView;
 }());
-;var TabView = (function(){
+;var TabView = (function() {
 
 	function TabView() {
 		this.super();
 
-		this.$base = $("<div class='TabView-base'></div>");
+		this.__$base = $("<div class='TabView-base'></div>");
 
-		this.$headerContainer = $("<ul class='TabView-headerContainer'></div>");
-		this.$headerContainer.appendTo(this.$base);
+		this.__$headerContainer = $("<ul class='TabView-headerContainer'></div>");
+		this.__$headerContainer.appendTo(this.__$base);
 
-		this.$panelContainer = $("<div class='TabView-panelContainer'></div>");
-		this.$panelContainer.appendTo(this.$base);
+		this.__$panelContainer = $("<div class='TabView-panelContainer'></div>");
+		this.__$panelContainer.appendTo(this.__$base);
 
-		this.panels = [];
+		this.__panels = [];
 		this.__activePanelIndex = null;
 
 		this.addPanel("タブ");
@@ -615,38 +615,38 @@
 	}
 	extendClass(TabView, View);
 
-	TabView.prototype.addPanel = function(name){
+	TabView.prototype.addPanel = function(name) {
 		var panel = new TabPanelView(name);
 
-		panel.$header.appendTo(this.$headerContainer);
-		panel.$base.appendTo(this.$panelContainer);
+		panel.__$header.appendTo(this.__$headerContainer);
+		panel.__$base.appendTo(this.__$panelContainer);
 
-		panel.bind("click", this.clickPanel, this);
-		this.panels.push(panel);
+		panel.bind("click", this.__clickPanel, this);
+		this.__panels.push(panel);
 
 		return panel;
 	};
 
-	TabView.prototype.getPanel = function(index){
-		return this.panels[index];
+	TabView.prototype.getPanel = function(index) {
+		return this.__panels[index];
 	};
 
 	TabView.prototype.activatePanel = function(index) {
 		if (this.__activePanelIndex !== null) {
-			this.panels[this.__activePanelIndex].deactivate();
+			this.__panels[this.__activePanelIndex].__deactivate();
 			this.__activePanelIndex = null;
 		}
 
-		this.panels[index].activate();
+		this.__panels[index].__activate();
 		this.__activePanelIndex = index;
 	};
 
-	TabView.prototype.clickPanel = function(ev, panel) {
+	TabView.prototype.__clickPanel = function(ev, panel) {
 		var i = 0
-		for (i = 0, max = this.panels.length; i <max; i++)
-			if (this.panels[i] === panel) break;
+		for (i = 0, max = this.__panels.length; i < max; i++)
+			if (this.__panels[i] === panel) break;
 
-		if (i === this.panels.length) {
+		if (i === this.__panels.length) {
 			return;
 		}
 
@@ -656,70 +656,70 @@
 	return TabView;
 }());
 
-var TabPanelView = (function(){
+var TabPanelView = (function() {
 
 	function TabPanelView(name) {
 		this.super();
 
-		this.$base = $("<div class='TabPanelView-base'></div>");
+		this.__$base = $("<div class='TabPanelView-base'></div>");
 
-		this.$header = $("<div class='TabPanelView-header'></div>");
+		this.__$header = $("<div class='TabPanelView-header'></div>");
 
-		this.$name = $("<span class='TabPanelView-name'>タブ</span>");
-		this.$name.appendTo(this.$header);
+		this.__$name = $("<span class='TabPanelView-name'>タブ</span>");
+		this.__$name.appendTo(this.$header);
 
-		this.$header.bind("click", this.clickHeader, this, true);
+		this.__$header.bind("click", this.__clickHeader, this, true);
 
 		this.name = name;
 	}
 	extendClass(TabPanelView, View);
 
-	TabPanelView.prototype.__defineSetter__("name", function(_name){
-		this.$name.text(_name);
+	TabPanelView.prototype.__defineSetter__("name", function(_name) {
+		this.__$name.text(_name);
 	});
-	TabPanelView.prototype.__defineGetter__("name", function(){
-		return this.$name.text();
+	TabPanelView.prototype.__defineGetter__("name", function() {
+		return this.__$name.text();
 	});
 
-	TabPanelView.prototype.activate = function(){
-		this.$base.addClass("-active");
-		this.$header.addClass("-active");
+	TabPanelView.prototype.__activate = function() {
+		this.__$base.addClass("-active");
+		this.__$header.addClass("-active");
 	};
 
-	TabPanelView.prototype.deactivate = function(){
-		this.$base.removeClass("-active");
-		this.$header.removeClass("-active");
+	TabPanelView.prototype.__deactivate = function() {
+		this.__$base.removeClass("-active");
+		this.__$header.removeClass("-active");
 	};
 
-	TabPanelView.prototype.clickHeader = function(ev) {
+	TabPanelView.prototype.__clickHeader = function(ev) {
 		this.fire("click", ev, this);
 	};
 
 	return TabPanelView;
 }());
-;var SideMenuView = (function(){
+;var SideMenuView = (function() {
 
 	function SideMenuView() {
 		this.super();
 
-		this.$base = $("<div class='SideMenuView-base'></div>");
+		this.__$base = $("<div class='SideMenuView-base'></div>");
 
 	}
 	extendClass(SideMenuView, View);
 
 	return SideMenuView;
 }());
-;var ButtonView = (function(){
+;var ButtonView = (function() {
 
 	function ButtonView(title) {
 		this.super();
 
-		this.$base = $("<button class='ButtonView-base'>"+title+"</button>");
-		this.$base.bind("click", this.click, this, true);
+		this.__$base = $("<button class='ButtonView-base'>" + title + "</button>");
+		this.__$base.bind("click", this.__click, this, true);
 	}
 	extendClass(ButtonView, View);
 
-	ButtonView.prototype.click = function(ev) {
+	ButtonView.prototype.__click = function(ev) {
 		this.fire("click", ev, this);
 	};
 
@@ -730,7 +730,7 @@ var TabPanelView = (function(){
 	function NoteView() {
 		this.super();
 
-		this.$base = $("<div class='NoteView-base'></div>");
+		this.__$base = $("<div class='NoteView-base'></div>");
 
 	}
 	extendClass(NoteView, View);
