@@ -1,0 +1,56 @@
+//#compileTo="../style.less"#
+
+html, body {
+	position: fixed;
+
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	width: 100%;
+	height: 100%;
+
+	padding: 0;
+	margin: 0;
+
+	font-size: 14px;
+	font-family:'Lucida Grande','Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+}
+
+body {
+	display: flex;
+	flex-direction: column;
+	background: @Grey50;
+	-webkit-user-select: none;
+}
+
+#toolbar {
+	flex-grow: 0;
+}
+#logo {
+	margin: 0;
+	display: inline-block;
+	vertical-align: middle;
+	text-align: center;
+
+	h1 {
+		line-height: 1em;
+		margin: 0 0 5px;
+		vertical-align: middle;
+	}
+}
+
+#maincontainer {
+	display: flex;
+	flex-direction: row;
+	flex-grow: 1;
+	background: @Grey200;
+}
+
+#sidemenu {
+	width: 200px;
+	flex-grow: 0;
+}
+#noteview {
+	flex-grow: 1;
+}

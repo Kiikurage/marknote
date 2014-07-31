@@ -1,0 +1,41 @@
+//#compileTo="../style.less"#
+
+@White: rgb(248, 248, 242);
+@Blue: rgb(102, 217, 239);
+@Green: rgb(166, 226, 46);
+@Orange: rgb(253, 151, 31);
+@Red: rgb(249, 38, 114);
+@Black: rgb(39, 40, 34);
+@Grey: rgb(117, 113, 94);
+@Yellow: rgb(230, 219, 116);
+
+.EditorView-lineArea,
+.EditorView-lineNumberArea {
+	background: @Black;
+}
+.EditorView-line {
+	color: @White;
+}
+.EditorView-lineNumber {
+	color: @Grey;
+}
+
+.EditorView-syntax-html {
+
+	.EditorView-syntax-html-open,
+	.EditorView-syntax-html-close {
+		color: @Orange;
+	}
+
+	.EditorView-syntax-tag {
+		.EditorView-syntax-tagName {
+			color: @Red;
+		}
+		.EditorView-syntax-attributeName {
+			color: @Green;
+		}
+		.EditorView-syntax-attributeValue {
+			color: @Yellow;
+		}
+	}
+}
