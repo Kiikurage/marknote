@@ -5,7 +5,7 @@ var SideMenuView = (function() {
 	function SideMenuView() {
 		this.super();
 
-		this.$base = $("<div class='SideMenuView-base'></div>");
+		this.__$base = $("<div class='SideMenuView-base'></div>");
 
 	}
 	extendClass(SideMenuView, View);

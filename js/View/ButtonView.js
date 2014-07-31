@@ -1,16 +1,16 @@
 //#include("/View/View.js");
 
-var ButtonView = (function(){
+var ButtonView = (function() {
 
 	function ButtonView(title) {
 		this.super();
 
-		this.$base = $("<button class='ButtonView-base'>"+title+"</button>");
-		this.$base.bind("click", this.click, this, true);
+		this.__$base = $("<button class='ButtonView-base'>" + title + "</button>");
+		this.__$base.bind("click", this.__click, this, true);
 	}
 	extendClass(ButtonView, View);
 
-	ButtonView.prototype.click = function(ev) {
+	ButtonView.prototype.__click = function(ev) {
 		this.fire("click", ev, this);
 	};
 

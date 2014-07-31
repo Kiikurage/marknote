@@ -3,15 +3,15 @@
 var KeyRecognizer = (function() {
 
 	function KeyRecognizer() {
-		this.patternList = [];
+
 	}
 	IPubSub.implement(KeyRecognizer.prototype);
 
 	KeyRecognizer.prototype.listen = function(node) {
-		node.bind("keydown", this.keyDownListener, this, true);
+		node.bind("keydown", this.__keyDownListener, this, true);
 	};
 
-	KeyRecognizer.prototype.keyDownListener = function(ev) {
+	KeyRecognizer.prototype.__keyDownListener = function(ev) {
 		var keys = [];
 		keys.push(ev.keyCode);
 

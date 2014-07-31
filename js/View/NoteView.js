@@ -4,14 +4,12 @@ var NoteView = (function() {
 
 	function NoteView() {
 		this.super();
-		this.$base = $("<div class='NoteView-base'></div>");
-
-		this.$base.bind("click", this.__baseClick, this, true);
-
+		this.__$base = $("<div class='NoteView-base'></div>");
+		this.__$base.bind("click", this.__click, this, true);
 	}
 	extendClass(NoteView, View);
 
-	NoteView.prototype.__baseClick = function(ev) {
+	NoteView.prototype.__click = function(ev) {
 		NoteView.prototype.__showNoteViewTextBox();
 	};
 
