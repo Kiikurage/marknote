@@ -2,12 +2,12 @@
 
 var ToolbarView = (function() {
 
-    function ToolbarView() {
-        this.super();
+	function ToolbarView() {
+		this.super();
 
-        this.$base = $("<div class='ToolbarView-base'></div>");
-    }
-    extendClass(ToolbarView, View);
+		this.__$base = $("<div class='ToolbarView-base'></div>");
+	}
+	extendClass(ToolbarView, View);
 
-    return ToolbarView;
+	return ToolbarView;
 }());

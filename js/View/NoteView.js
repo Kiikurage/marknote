@@ -5,7 +5,7 @@ var NoteView = (function() {
 	function NoteView() {
 		this.super();
 
-		this.$base = $("<div class='NoteView-base'></div>");
+		this.__$base = $("<div class='NoteView-base'></div>");
 
 	}
 	extendClass(NoteView, View);
