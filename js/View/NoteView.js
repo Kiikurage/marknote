@@ -1,4 +1,5 @@
 //#include("/View/View.js");
+//#include("/Service/Markdown.js");
 
 var NoteView = (function() {
 
@@ -41,6 +42,9 @@ var NoteViewTextBox = (function() {
 		this.__$textarea.appendTo(this.__$base);
 		this.__$textarea.bind("input", this.__input, this, true);
 		this.__$textarea.bind("blur", this.__blurTextArea, this, true);
+
+		this.__$markdown = $("<div class='NoteViewTextBox-markdown'></textarea>")
+		this.__$markdown.appendTo(this.__$base);
 	}
 	extendClass(NoteViewTextBox, View);
 
@@ -58,6 +62,7 @@ var NoteViewTextBox = (function() {
 			this.remove();
 		}
 
+		this.__$base.removeClass("-edit");
 		this.update();
 	};
 
@@ -67,6 +72,7 @@ var NoteViewTextBox = (function() {
 	};
 
 	NoteViewTextBox.prototype.setFocus = function() {
+		this.__$base.addClass("-edit");
 		this.__$textarea.focus();
 		this.update();
 	};
@@ -75,6 +81,10 @@ var NoteViewTextBox = (function() {
 		this.__$base.toggleClass("-focus",
 			this.__$textarea.val() !== "" &&
 			document.activeElement === this.__$textarea[0]);
+
+		var html = Markdown.parse(this.__$textarea.val());
+
+		this.__$markdown.html(html);
 	};
 
 	return NoteViewTextBox;

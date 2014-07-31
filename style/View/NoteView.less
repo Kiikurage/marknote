@@ -17,8 +17,8 @@
 	display: block;
 	position: absolute;
 
-	width: 100px;
-	height: 60px;
+	width: 300px;
+	height: 200px;
 
 	padding: 0;
 	margin: 0;
@@ -33,6 +33,14 @@
 		.NoteViewTextBox-header {
 			background: @Grey100;
 			border-color: @Grey300;
+		}
+	}
+	&.-edit {
+		.NoteViewTextBox-textarea {
+			display: block;
+		}
+		.NoteViewTextBox-markdown {
+			display: none;
 		}
 	}
 }
@@ -53,6 +61,26 @@
 	box-sizing: border-box;
 }
 .NoteViewTextBox-textarea {
+	display: none;
+	position: absolute;
+
+	top: 10px;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	width: 100%;
+
+	border: none;
+	background: none;
+
+	color: @Grey900;
+	font-size: 1em;
+
+	outline: none;
+	resize: none;
+	box-sizing: border-box;
+}
+.NoteViewTextBox-markdown {
 	display: block;
 	position: absolute;
 
@@ -66,6 +94,7 @@
 	background: none;
 
 	color: @Grey900;
+	font-size: 1em;
 
 	outline: none;
 	resize: none;
