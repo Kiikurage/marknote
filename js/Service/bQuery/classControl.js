@@ -12,10 +12,18 @@
 			});
 			return this
 		},
-		toggleClass: function(klass) {
-			this.map(function(node) {
-				node.classList.toggle(klass);
-			});
+		toggleClass: function(klass, flag) {
+			if (arguments.length == 2) {
+				if (flag) {
+					return this.addClass(klass)
+				} else {
+					return this.removeClass(klass)
+				}
+			} else {
+				this.map(function(node) {
+					node.classList.toggle(klass);
+				});
+			}
 			return this
 		},
 		hasClass: function(klass) {

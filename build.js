@@ -93,138 +93,138 @@
 }(this));
 ;var IPubSub = (function(exports) {
 
-    var callbackDict = {};
-    var nativeCallbackDict = {};
-    var guid = 0;
+	var callbackDict = {};
+	var nativeCallbackDict = {};
+	var guid = 0;
 
-    function getPublihserId(target, flagCreate) {
-        return target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
-    }
+	function getPublihserId(target, flagCreate) {
+		return target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
+	}
 
-    exports.bind = function(publisher, type, fn, context, isNative) {
-        var publisherID = getPublihserId(publisher, true);
+	exports.bind = function(publisher, type, fn, context, isNative) {
+		var publisherID = getPublihserId(publisher, true);
 
-        var callbackList = callbackDict[publisherID];
-        if (!callbackList) {
-            callbackList = callbackDict[publisherID] = {};
-        }
+		var callbackList = callbackDict[publisherID];
+		if (!callbackList) {
+			callbackList = callbackDict[publisherID] = {};
+		}
 
-        var callbacks = callbackList[type];
-        if (!callbacks) {
-            callbacks = callbackList[type] = [];
-        }
+		var callbacks = callbackList[type];
+		if (!callbacks) {
+			callbacks = callbackList[type] = [];
+		}
 
-        if (isNative) {
-            var nativeCallbackList = nativeCallbackDict[publisherID];
-            if (!nativeCallbackList) {
-                nativeCallbackList = nativeCallbackDict[publisherID] = {};
-            }
+		if (isNative) {
+			var nativeCallbackList = nativeCallbackDict[publisherID];
+			if (!nativeCallbackList) {
+				nativeCallbackList = nativeCallbackDict[publisherID] = {};
+			}
 
-            var nativeCallback = nativeCallbackList[type];
-            if (!nativeCallback) {
-                nativeCallback = nativeCallbackList[type] = function(ev) {
-                    this.fire(type, ev);
-                };
+			var nativeCallback = nativeCallbackList[type];
+			if (!nativeCallback) {
+				nativeCallback = nativeCallbackList[type] = function(ev) {
+					this.fire(type, ev);
+				};
 
-                publisher.addEventListener(type, nativeCallback);
-            }
-        }
+				publisher.addEventListener(type, nativeCallback);
+			}
+		}
 
-        callbacks.push({
-            context: context,
-            fn: fn,
-        });
-    }
+		callbacks.push({
+			context: context,
+			fn: fn,
+		});
+	}
 
-    exports.one = function(publisher, type, fn, context) {
-        IPubSub.bind(publisher, type, function() {
-            fn.apply(this, arguments);
-            IPubSub.unbind(publisher, type, arguments.callee, context);
-        }, context);
-    };
+	exports.one = function(publisher, type, fn, context) {
+		IPubSub.bind(publisher, type, function() {
+			fn.apply(this, arguments);
+			IPubSub.unbind(publisher, type, arguments.callee, context);
+		}, context);
+	};
 
-    exports.unbind = function(publisher, type, fn, context) {
-        var publisherID = getPublihserId(publisher);
-        if (!publisherID) return;
+	exports.unbind = function(publisher, type, fn, context) {
+		var publisherID = getPublihserId(publisher);
+		if (!publisherID) return;
 
-        var callbackList = callbackDict[publisherID];
-        if (!callbackList) return
+		var callbackList = callbackDict[publisherID];
+		if (!callbackList) return
 
-        var callbacks = callbackList[type];
-        if (!callbacks) return
+		var callbacks = callbackList[type];
+		if (!callbacks) return
 
-        for (var i = 0, max = callbacks.length; i < max; i++) {
-            var callback = callbacks[i];
+		for (var i = 0, max = callbacks.length; i < max; i++) {
+			var callback = callbacks[i];
 
-            if (callback.fn === fn &&
-                callback.context === context) {
-                callbacks.splice(i, 1);
-                i--;
-                max--;
-            }
-        }
+			if (callback.fn === fn &&
+				callback.context === context) {
+				callbacks.splice(i, 1);
+				i--;
+				max--;
+			}
+		}
 
-        if (callbacks.length > 0) return
+		if (callbacks.length > 0) return
 
-        //remove nativeCallback
-        var nativeCallbackList = nativeCallbackDict[publisherID];
-        if (nativeCallbackList) {
-            var nativeCallback = nativeCallbackList[type];
-            if (nativeCallback) {
-                publisher.removeEventListener(type, nativeCallback);
-                nativeCallback = nativeCallbackList[type] = null;
-            }
-        }
-    }
+		//remove nativeCallback
+		var nativeCallbackList = nativeCallbackDict[publisherID];
+		if (nativeCallbackList) {
+			var nativeCallback = nativeCallbackList[type];
+			if (nativeCallback) {
+				publisher.removeEventListener(type, nativeCallback);
+				nativeCallback = nativeCallbackList[type] = null;
+			}
+		}
+	}
 
-    exports.fire = function(publisher, type, argArr) {
-        var publisherID = getPublihserId(publisher);
-        if (!publisherID) return;
+	exports.fire = function(publisher, type, argArr) {
+		var publisherID = getPublihserId(publisher);
+		if (!publisherID) return;
 
-        var callbackList = callbackDict[publisherID];
-        if (!callbackList) return
+		var callbackList = callbackDict[publisherID];
+		if (!callbackList) return
 
-        var callbacks = callbackList[type];
-        if (!callbacks) return
+		var callbacks = callbackList[type];
+		if (!callbacks) return
 
-        argArr = argArr || [];
+		argArr = argArr || [];
 
-        var firedArr = [];
+		var firedArr = [];
 
-        var callback;
-        while (callback = callbacks[0]) {
-            callback.fn.apply(callback.context || publisher, argArr);
-            if (callbacks[0] === callback) {
-                firedArr.push(callbacks.shift());
-            }
-        }
+		var callback;
+		while (callback = callbacks[0]) {
+			callback.fn.apply(callback.context || publisher, argArr);
+			if (callbacks[0] === callback) {
+				firedArr.push(callbacks.shift());
+			}
+		}
 
-        callbackList[type] = firedArr;
-    }
+		callbackList[type] = firedArr;
+	}
 
-    exports.implement = function(target) {
-        target.bind = function(type, fn, context, isNative) {
-            IPubSub.bind(this, type, fn, context, isNative);
-            return this;
-        };
-        target.one = function(type, fn, context) {
-            IPubSub.one(this, type, fn, context);
-            return this;
-        };
-        target.unbind = function(type, fn, context) {
-            IPubSub.unbind(this, type, fn, context);
-            return this;
-        };
-        target.fire = function(type) {
-            var args = [];
-            args.push.apply(args, arguments);
-            args.shift();
-            IPubSub.fire(this, type, args);
-            return this;
-        };
-    }
+	exports.implement = function(target) {
+		target.bind = function(type, fn, context, isNative) {
+			IPubSub.bind(this, type, fn, context, isNative);
+			return this;
+		};
+		target.one = function(type, fn, context) {
+			IPubSub.one(this, type, fn, context);
+			return this;
+		};
+		target.unbind = function(type, fn, context) {
+			IPubSub.unbind(this, type, fn, context);
+			return this;
+		};
+		target.fire = function(type) {
+			var args = [];
+			args.push.apply(args, arguments);
+			args.shift();
+			IPubSub.fire(this, type, args);
+			return this;
+		};
+	}
 
-    return exports;
+	return exports;
 }({}));
 ;var bQuery = (function() {
 
@@ -444,10 +444,18 @@
 			});
 			return this
 		},
-		toggleClass: function(klass) {
-			this.map(function(node) {
-				node.classList.toggle(klass);
-			});
+		toggleClass: function(klass, flag) {
+			if (arguments.length == 2) {
+				if (flag) {
+					return this.addClass(klass)
+				} else {
+					return this.removeClass(klass)
+				}
+			} else {
+				this.map(function(node) {
+					node.classList.toggle(klass);
+				});
+			}
 			return this
 		},
 		hasClass: function(klass) {
@@ -579,6 +587,20 @@
 
 	View.prototype.setID = function(id) {
 		this.__$base.attr("id", id);
+	};
+
+	View.prototype.setPosition = function(left, top) {
+		this.__$base.css({
+			top: top,
+			left: left
+		});
+	};
+
+	View.prototype.setSize = function(width, height) {
+		this.__$base.css({
+			width: width,
+			height: height
+		});
 	};
 
 	return View;
@@ -735,14 +757,74 @@ var TabPanelView = (function() {
 	extendClass(NoteView, View);
 
 	NoteView.prototype.__click = function(ev) {
-		NoteView.prototype.__showNoteViewTextBox();
+		var textBox = this.__addNoteViewTextBox(),
+			x = Math.round(ev.offsetX / 10) * 10,
+			y = Math.round(ev.offsetY / 10) * 10;
+
+		textBox.setPosition(x, y);
+		textBox.setFocus();
 	};
 
-	NoteView.prototype.__showNoteViewTextBox = function() {
-		console.log("__showNoteViewTextBox");
+	NoteView.prototype.__addNoteViewTextBox = function() {
+		var textBox = new NoteViewTextBox();
+		textBox.appendTo(this);
+		return textBox;
 	};
 
 	return NoteView;
+}());
+
+var NoteViewTextBox = (function() {
+
+	function NoteViewTextBox() {
+		this.super();
+		this.__$base = $("<div class='NoteViewTextBox-base'></div>");
+		this.__$base.bind("click", this.__click, this, true);
+
+		this.__$header = $("<header class='NoteViewTextBox-header'></header>")
+		this.__$header.appendTo(this.__$base);
+
+		this.__$textarea = $("<textarea class='NoteViewTextBox-textarea'></textarea>")
+		this.__$textarea.appendTo(this.__$base);
+		this.__$textarea.bind("input", this.__input, this, true);
+		this.__$textarea.bind("blur", this.__blurTextArea, this, true);
+	}
+	extendClass(NoteViewTextBox, View);
+
+	NoteViewTextBox.prototype.__click = function(ev) {
+		this.setFocus();
+		ev.stopPropagation();
+	};
+
+	NoteViewTextBox.prototype.__input = function(ev) {
+		this.update();
+	};
+
+	NoteViewTextBox.prototype.__blurTextArea = function(ev) {
+		if (this.__$textarea.val() === "") {
+			this.remove();
+		}
+
+		this.update();
+	};
+
+	NoteViewTextBox.prototype.remove = function() {
+		this.__$base.remove();
+		this.fire("remove", this);
+	};
+
+	NoteViewTextBox.prototype.setFocus = function() {
+		this.__$textarea.focus();
+		this.update();
+	};
+
+	NoteViewTextBox.prototype.update = function() {
+		this.__$base.toggleClass("-focus",
+			this.__$textarea.val() !== "" &&
+			document.activeElement === this.__$textarea[0]);
+	};
+
+	return NoteViewTextBox;
 }());
 ;window.addEventListener("DOMContentLoaded", init);
 
