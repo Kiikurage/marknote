@@ -4,99 +4,57 @@
 	display: block;
 	position: relative;
 
-	padding: 10px 20px;
+	padding: 0;
 	margin: 0;
 
 	background: @Grey0;
 
 	color: @Grey600;
 
+	overflow: scroll;
 	box-sizing: border-box;
+	cursor: text;
 }
 .NoteViewTextBox-base {
 	display: block;
 	position: absolute;
 
-	width: 600px;
-	height: 200px;
+	width: auto;
+	height: auto;
 
-	padding: 0;
+	padding: 10px;
 	margin: 0;
 
 	border: 1px solid transparent;
+	border-radius: 3px;
 
-	box-sizing: border-box;
-
-	&.-focus {
-		border-color: @Grey300;
-
-		.NoteViewTextBox-header {
-			background: @Grey100;
-			border-color: @Grey300;
-		}
+	&:hover,
+	&.-hover {
+		// border-color: @Grey300;
+		background: fade(@Grey100, 50);
 	}
-	&.-edit {
-		.NoteViewTextBox-textarea {
-			display: block;
-		}
-		.NoteViewTextBox-markdown {
-			display: none;
-		}
+	&.-drag {
+		cursor: move;
 	}
-}
-.NoteViewTextBox-header {
-	display: block;
-	position: absolute;
-
-	top: 0;
-	left: 0;
-	right: 0;
-	height: 10px;
-
-	padding: 0;
-	margin: 0;
-
-	border-bottom: 1px solid transparent;
-
-	box-sizing: border-box;
-}
-.NoteViewTextBox-textarea {
-	display: none;
-	position: absolute;
-
-	top: 10px;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	width: 100%;
-
-	border: none;
-	background: none;
-
-	color: @Grey900;
-	font-size: 1em;
-
-	outline: none;
-	resize: none;
-	box-sizing: border-box;
 }
 .NoteViewTextBox-markdown {
 	display: block;
-	position: absolute;
-
-	top: 10px;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	width: 100%;
+	position: relative;
 
 	border: none;
 	background: none;
 
 	color: @Grey900;
-	font-size: 1em;
+	font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
+	font-size: 14px;
+	line-height: 1.2;
 
 	outline: none;
-	resize: none;
 	box-sizing: border-box;
+}
+.NoteViewTextBox-textarea {
+	display: block;
+	position: fixed;
+	top: -10px;
+	height: 1px;
 }

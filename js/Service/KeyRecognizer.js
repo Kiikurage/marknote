@@ -11,6 +11,10 @@ var KeyRecognizer = (function() {
 		node.bind("keydown", this.__keyDownListener, this, true);
 	};
 
+	KeyRecognizer.prototype.unlisten = function(node) {
+		node.unbind("keydown", this.__keyDownListener, this, true);
+	};
+
 	KeyRecognizer.prototype.__keyDownListener = function(ev) {
 		var keys = [];
 		keys.push(ev.keyCode);

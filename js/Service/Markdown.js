@@ -59,7 +59,6 @@ var Markdown = (function() {
 		var rootNode = tokenize(text),
 			html = convertToHTML(rootNode);
 
-		rootNode.print();
 		return html;
 	};
 

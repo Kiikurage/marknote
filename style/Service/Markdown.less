@@ -5,17 +5,20 @@
 .Markdown-italic {
 	font-style: italic;
 }
-.Markdown-paragraph {
+.Markdown-paragraph,
+.Markdown-block {
 	display: block;
 	position: realtive;
 	margin: 0 0 10px 0;
 	padding: 0;
-}
-.Markdown-block {
-	display: block;
-	position: realtive;
-	margin: 0 0 10px 20px;
-	padding: 0;
+
+	&:last-child {
+		margin-bottom: 0;
+	}
+
+	.Markdown-block {
+		margin-left: 20px;
+	}
 }
 h1.Markdown-header,
 h2.Markdown-header,

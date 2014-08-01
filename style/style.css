@@ -4,17 +4,20 @@
 .Markdown-italic {
   font-style: italic;
 }
-.Markdown-paragraph {
+.Markdown-paragraph,
+.Markdown-block {
   display: block;
   position: realtive;
   margin: 0 0 10px 0;
   padding: 0;
 }
-.Markdown-block {
-  display: block;
-  position: realtive;
-  margin: 0 0 10px 20px;
-  padding: 0;
+.Markdown-paragraph:last-child,
+.Markdown-block:last-child {
+  margin-bottom: 0;
+}
+.Markdown-paragraph .Markdown-block,
+.Markdown-block .Markdown-block {
+  margin-left: 20px;
 }
 h1.Markdown-header,
 h2.Markdown-header,
@@ -183,78 +186,48 @@ h6.Markdown-header {
 .NoteView-base {
   display: block;
   position: relative;
-  padding: 10px 20px;
+  padding: 0;
   margin: 0;
   background: #ffffff;
   color: #757575;
+  overflow: scroll;
   box-sizing: border-box;
+  cursor: text;
 }
 .NoteViewTextBox-base {
   display: block;
   position: absolute;
-  width: 600px;
-  height: 200px;
-  padding: 0;
+  width: auto;
+  height: auto;
+  padding: 10px;
   margin: 0;
   border: 1px solid transparent;
-  box-sizing: border-box;
+  border-radius: 3px;
 }
-.NoteViewTextBox-base.-focus {
-  border-color: #e0e0e0;
+.NoteViewTextBox-base:hover,
+.NoteViewTextBox-base.-hover {
+  background: rgba(245, 245, 245, 0.5);
 }
-.NoteViewTextBox-base.-focus .NoteViewTextBox-header {
-  background: #f5f5f5;
-  border-color: #e0e0e0;
-}
-.NoteViewTextBox-base.-edit .NoteViewTextBox-textarea {
-  display: block;
-}
-.NoteViewTextBox-base.-edit .NoteViewTextBox-markdown {
-  display: none;
-}
-.NoteViewTextBox-header {
-  display: block;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 10px;
-  padding: 0;
-  margin: 0;
-  border-bottom: 1px solid transparent;
-  box-sizing: border-box;
-}
-.NoteViewTextBox-textarea {
-  display: none;
-  position: absolute;
-  top: 10px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  border: none;
-  background: none;
-  color: #212121;
-  font-size: 1em;
-  outline: none;
-  resize: none;
-  box-sizing: border-box;
+.NoteViewTextBox-base.-drag {
+  cursor: move;
 }
 .NoteViewTextBox-markdown {
   display: block;
-  position: absolute;
-  top: 10px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
+  position: relative;
   border: none;
   background: none;
   color: #212121;
-  font-size: 1em;
+  font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
+  font-size: 14px;
+  line-height: 1.2;
   outline: none;
-  resize: none;
   box-sizing: border-box;
+}
+.NoteViewTextBox-textarea {
+  display: block;
+  position: fixed;
+  top: -10px;
+  height: 1px;
 }
 html,
 body {
