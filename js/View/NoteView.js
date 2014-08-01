@@ -1,5 +1,6 @@
 //#include("/View/View.js");
 //#include("/Service/Markdown.js");
+//#include("/Service/KeyRecognizer.js");
 
 var NoteView = (function() {
 
@@ -45,6 +46,12 @@ var NoteViewTextBox = (function() {
 
 		this.__$markdown = $("<div class='NoteViewTextBox-markdown'></textarea>")
 		this.__$markdown.appendTo(this.__$base);
+
+		var kr = new KeyRecognizer();
+		kr.listen(this.__$textarea);
+		kr.register({
+			"tab": this.__inputTab
+		}, this);
 	}
 	extendClass(NoteViewTextBox, View);
 
@@ -64,6 +71,19 @@ var NoteViewTextBox = (function() {
 
 		this.__$base.removeClass("-edit");
 		this.update();
+	};
+
+	NoteViewTextBox.prototype.__inputTab = function(ev) {
+		var $textarea = this.__$textarea,
+			val = $textarea.val();
+
+		$textarea.val(
+			val.slice(0, $textarea[0].selectionStart) +
+			"\t" +
+			val.slice($textarea[0].selectionEnd)
+		);
+
+		ev.preventDefault();
 	};
 
 	NoteViewTextBox.prototype.remove = function() {
