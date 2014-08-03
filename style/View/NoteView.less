@@ -22,11 +22,13 @@
 	width: auto;
 	height: auto;
 
-	padding: 10px;
+	padding: 30px;
 	margin: 0;
 
 	border: 1px solid transparent;
 	border-radius: 3px;
+
+	transition: background 0.2s ease;
 
 	&:hover,
 	&.-hover {
@@ -35,6 +37,10 @@
 	}
 	&.-drag {
 		cursor: move;
+		background: fade(@Cyan300, 50);
+	}
+	&.-edit {
+		background: fade(@Amber300, 50);
 	}
 }
 .NoteViewTextBox-markdown {
@@ -57,4 +63,19 @@
 	position: fixed;
 	top: -10px;
 	height: 1px;
+}
+.NoteViewTextBox-Cursor {
+	display: inline-block;
+	position: relative;
+	width: 1px;
+	background: #000;
+}
+.NoteViewTextBox-CursorDetector {
+	display: inline-block;
+	position: realtive;
+
+	width: 1px;
+	height: auto;
+
+	background: #000;
 }

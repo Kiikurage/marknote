@@ -114,8 +114,11 @@ var Markdown = (function() {
 			}
 
 			//2. inline functions
-			var newToken = new MarkdownToken(TokenType.NormalText, line);
-			scope.appendChild(newToken);
+
+			if (line != "") {
+				var newToken = new MarkdownToken(TokenType.NormalText, line);
+				scope.appendChild(newToken);
+			}
 		}
 
 		return res;
@@ -140,7 +143,7 @@ var Markdown = (function() {
 			case TokenType.List:
 				var prev = token.prev();
 				if (prev && prev.type === TokenType.List) {
-					return "<li>"
+					return "<li class='Markdown-listItem'>"
 				}
 				return "<ul class='Markdown-list'><li class='Markdown-listItem'>";
 				break;

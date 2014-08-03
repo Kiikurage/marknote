@@ -25,17 +25,17 @@ h3.Markdown-header,
 h4.Markdown-header,
 h5.Markdown-header,
 h6.Markdown-header {
-  margin: 0 0 10px 0;
+  margin: 30px 0 10px 0;
   line-height: 1em;
   box-sizing: border-box;
 }
 h1.Markdown-header {
-  font-size: 3em;
-  border-bottom: 2px solid #26c6da;
+  margin: 0 0 10px 0;
+  font-size: 4em;
+  color: #4dd0e1;
 }
 h2.Markdown-header {
   font-size: 1.8em;
-  margin-left: -5px;
   padding: 3px 5px;
   border-left: 5px solid #26c6da;
 }
@@ -199,10 +199,11 @@ h6.Markdown-header {
   position: absolute;
   width: auto;
   height: auto;
-  padding: 10px;
+  padding: 30px;
   margin: 0;
   border: 1px solid transparent;
   border-radius: 3px;
+  transition: background 0.2s ease;
 }
 .NoteViewTextBox-base:hover,
 .NoteViewTextBox-base.-hover {
@@ -210,6 +211,10 @@ h6.Markdown-header {
 }
 .NoteViewTextBox-base.-drag {
   cursor: move;
+  background: rgba(77, 208, 225, 0.5);
+}
+.NoteViewTextBox-base.-edit {
+  background: rgba(255, 213, 79, 0.5);
 }
 .NoteViewTextBox-markdown {
   display: block;
@@ -228,6 +233,19 @@ h6.Markdown-header {
   position: fixed;
   top: -10px;
   height: 1px;
+}
+.NoteViewTextBox-Cursor {
+  display: inline-block;
+  position: relative;
+  width: 1px;
+  background: #000;
+}
+.NoteViewTextBox-CursorDetector {
+  display: inline-block;
+  position: realtive;
+  width: 1px;
+  height: auto;
+  background: #000;
 }
 html,
 body {
