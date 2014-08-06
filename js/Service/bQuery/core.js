@@ -69,7 +69,7 @@ var bQuery = (function() {
 			var res = $();
 
 			this.map(function(node) {
-				res.merge(dom.querySelectorAll(query));
+				res.merge(node.querySelectorAll(query));
 			});
 
 			return res;

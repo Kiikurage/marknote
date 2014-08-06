@@ -1,3 +1,67 @@
+.Markdown-bold {
+  font-weight: bold;
+}
+.Markdown-italic {
+  font-style: italic;
+}
+.Markdown-paragraph,
+.Markdown-block {
+  display: block;
+  position: realtive;
+  margin: 0 0 10px 0;
+  padding: 0;
+}
+.Markdown-paragraph:last-child,
+.Markdown-block:last-child {
+  margin-bottom: 0;
+}
+.Markdown-paragraph .Markdown-block,
+.Markdown-block .Markdown-block {
+  margin-left: 20px;
+}
+h1.Markdown-header,
+h2.Markdown-header,
+h3.Markdown-header,
+h4.Markdown-header,
+h5.Markdown-header,
+h6.Markdown-header {
+  margin: 30px 0 10px 0;
+  line-height: 1em;
+  box-sizing: border-box;
+}
+h1.Markdown-header {
+  margin: 0 0 10px 0;
+  font-size: 4em;
+  color: #4dd0e1;
+}
+h2.Markdown-header {
+  font-size: 1.8em;
+  padding: 3px 5px;
+  border-left: 5px solid #26c6da;
+}
+h3.Markdown-header {
+  font-size: 1em;
+}
+h4.Markdown-header {
+  font-size: 0.8em;
+}
+h5.Markdown-header {
+  font-size: 0.6em;
+}
+h6.Markdown-header {
+  font-size: 0.5em;
+}
+.Markdown-list {
+  margin: 0 0 10px 0;
+}
+.Markdown-listItem {
+  margin: 0 0 5px 0;
+}
+.Markdown-horizontalLine {
+  border: none;
+  border-top: 1px solid #bdbdbd;
+  margin: 0 0 10px 0;
+}
 .ButtonView-base {
   display: inline-block;
   position: relative;
@@ -122,12 +186,66 @@
 .NoteView-base {
   display: block;
   position: relative;
-  padding: 10px 20px;
+  padding: 0;
   margin: 0;
-  border-right: 1px solid #e0e0e0;
   background: #ffffff;
   color: #757575;
+  overflow: scroll;
   box-sizing: border-box;
+  cursor: text;
+}
+.NoteViewTextBox-base {
+  display: block;
+  position: absolute;
+  width: auto;
+  height: auto;
+  padding: 30px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+.NoteViewTextBox-base:hover,
+.NoteViewTextBox-base.-hover {
+  background: rgba(245, 245, 245, 0.5);
+}
+.NoteViewTextBox-base.-drag {
+  cursor: move;
+  background: rgba(77, 208, 225, 0.5);
+}
+.NoteViewTextBox-base.-edit {
+  background: rgba(255, 213, 79, 0.5);
+}
+.NoteViewTextBox-markdown {
+  display: block;
+  position: relative;
+  border: none;
+  background: none;
+  color: #212121;
+  font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
+  font-size: 14px;
+  line-height: 1.2;
+  outline: none;
+  box-sizing: border-box;
+}
+.NoteViewTextBox-textarea {
+  display: block;
+  position: fixed;
+  top: -10px;
+  height: 1px;
+}
+.NoteViewTextBox-Cursor {
+  display: inline-block;
+  position: relative;
+  width: 1px;
+  background: #000;
+}
+.NoteViewTextBox-CursorDetector {
+  display: inline-block;
+  position: realtive;
+  width: 1px;
+  height: auto;
+  background: #000;
 }
 html,
 body {

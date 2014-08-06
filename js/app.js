@@ -45,12 +45,12 @@ function init() {
 	toggleSideMenu = new ButtonView("メニューをたたむ");
 	toggleSideMenu.appendTo(toolbar);
 	toggleSideMenu.bind("click", function() {
-		if (sideMenu.$base.css("marginLeft") === "-200px") {
-			sideMenu.$base.animate(function(x) {
+		if (sideMenu.__$base.css("marginLeft") === "-200px") {
+			sideMenu.__$base.animate(function(x) {
 				this.css("marginLeft", -200 * (1 - x * x) + "px");
 			}, 100);
 		} else {
-			sideMenu.$base.animate(function(x) {
+			sideMenu.__$base.animate(function(x) {
 				this.css("marginLeft", -200 * x * x + "px");
 			}, 100);
 		}

@@ -50,6 +50,7 @@
 
 	exports.KEYCODE = {
 		BACKSPACE: 8,
+		TAB: 9,
 		ENTER: 13,
 		SHIFT: 16,
 		CTRL: 17,
@@ -93,138 +94,138 @@
 }(this));
 ;var IPubSub = (function(exports) {
 
-    var callbackDict = {};
-    var nativeCallbackDict = {};
-    var guid = 0;
+	var callbackDict = {};
+	var nativeCallbackDict = {};
+	var guid = 0;
 
-    function getPublihserId(target, flagCreate) {
-        return target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
-    }
+	function getPublihserId(target, flagCreate) {
+		return target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
+	}
 
-    exports.bind = function(publisher, type, fn, context, isNative) {
-        var publisherID = getPublihserId(publisher, true);
+	exports.bind = function(publisher, type, fn, context, isNative) {
+		var publisherID = getPublihserId(publisher, true);
 
-        var callbackList = callbackDict[publisherID];
-        if (!callbackList) {
-            callbackList = callbackDict[publisherID] = {};
-        }
+		var callbackList = callbackDict[publisherID];
+		if (!callbackList) {
+			callbackList = callbackDict[publisherID] = {};
+		}
 
-        var callbacks = callbackList[type];
-        if (!callbacks) {
-            callbacks = callbackList[type] = [];
-        }
+		var callbacks = callbackList[type];
+		if (!callbacks) {
+			callbacks = callbackList[type] = [];
+		}
 
-        if (isNative) {
-            var nativeCallbackList = nativeCallbackDict[publisherID];
-            if (!nativeCallbackList) {
-                nativeCallbackList = nativeCallbackDict[publisherID] = {};
-            }
+		if (isNative) {
+			var nativeCallbackList = nativeCallbackDict[publisherID];
+			if (!nativeCallbackList) {
+				nativeCallbackList = nativeCallbackDict[publisherID] = {};
+			}
 
-            var nativeCallback = nativeCallbackList[type];
-            if (!nativeCallback) {
-                nativeCallback = nativeCallbackList[type] = function(ev) {
-                    this.fire(type, ev);
-                };
+			var nativeCallback = nativeCallbackList[type];
+			if (!nativeCallback) {
+				nativeCallback = nativeCallbackList[type] = function(ev) {
+					this.fire(type, ev);
+				};
 
-                publisher.addEventListener(type, nativeCallback);
-            }
-        }
+				publisher.addEventListener(type, nativeCallback);
+			}
+		}
 
-        callbacks.push({
-            context: context,
-            fn: fn,
-        });
-    }
+		callbacks.push({
+			context: context,
+			fn: fn,
+		});
+	}
 
-    exports.one = function(publisher, type, fn, context) {
-        IPubSub.bind(publisher, type, function() {
-            fn.apply(this, arguments);
-            IPubSub.unbind(publisher, type, arguments.callee, context);
-        }, context);
-    };
+	exports.one = function(publisher, type, fn, context) {
+		IPubSub.bind(publisher, type, function() {
+			fn.apply(this, arguments);
+			IPubSub.unbind(publisher, type, arguments.callee, context);
+		}, context);
+	};
 
-    exports.unbind = function(publisher, type, fn, context) {
-        var publisherID = getPublihserId(publisher);
-        if (!publisherID) return;
+	exports.unbind = function(publisher, type, fn, context) {
+		var publisherID = getPublihserId(publisher);
+		if (!publisherID) return;
 
-        var callbackList = callbackDict[publisherID];
-        if (!callbackList) return
+		var callbackList = callbackDict[publisherID];
+		if (!callbackList) return
 
-        var callbacks = callbackList[type];
-        if (!callbacks) return
+		var callbacks = callbackList[type];
+		if (!callbacks) return
 
-        for (var i = 0, max = callbacks.length; i < max; i++) {
-            var callback = callbacks[i];
+		for (var i = 0, max = callbacks.length; i < max; i++) {
+			var callback = callbacks[i];
 
-            if (callback.fn === fn &&
-                callback.context === context) {
-                callbacks.splice(i, 1);
-                i--;
-                max--;
-            }
-        }
+			if (callback.fn === fn &&
+				callback.context === context) {
+				callbacks.splice(i, 1);
+				i--;
+				max--;
+			}
+		}
 
-        if (callbacks.length > 0) return
+		if (callbacks.length > 0) return
 
-        //remove nativeCallback
-        var nativeCallbackList = nativeCallbackDict[publisherID];
-        if (nativeCallbackList) {
-            var nativeCallback = nativeCallbackList[type];
-            if (nativeCallback) {
-                publisher.removeEventListener(type, nativeCallback);
-                nativeCallback = nativeCallbackList[type] = null;
-            }
-        }
-    }
+		//remove nativeCallback
+		var nativeCallbackList = nativeCallbackDict[publisherID];
+		if (nativeCallbackList) {
+			var nativeCallback = nativeCallbackList[type];
+			if (nativeCallback) {
+				publisher.removeEventListener(type, nativeCallback);
+				nativeCallback = nativeCallbackList[type] = null;
+			}
+		}
+	}
 
-    exports.fire = function(publisher, type, argArr) {
-        var publisherID = getPublihserId(publisher);
-        if (!publisherID) return;
+	exports.fire = function(publisher, type, argArr) {
+		var publisherID = getPublihserId(publisher);
+		if (!publisherID) return;
 
-        var callbackList = callbackDict[publisherID];
-        if (!callbackList) return
+		var callbackList = callbackDict[publisherID];
+		if (!callbackList) return
 
-        var callbacks = callbackList[type];
-        if (!callbacks) return
+		var callbacks = callbackList[type];
+		if (!callbacks) return
 
-        argArr = argArr || [];
+		argArr = argArr || [];
 
-        var firedArr = [];
+		var firedArr = [];
 
-        var callback;
-        while (callback = callbacks[0]) {
-            callback.fn.apply(callback.context || publisher, argArr);
-            if (callbacks[0] === callback) {
-                firedArr.push(callbacks.shift());
-            }
-        }
+		var callback;
+		while (callback = callbacks[0]) {
+			callback.fn.apply(callback.context || publisher, argArr);
+			if (callbacks[0] === callback) {
+				firedArr.push(callbacks.shift());
+			}
+		}
 
-        callbackList[type] = firedArr;
-    }
+		callbackList[type] = firedArr;
+	}
 
-    exports.implement = function(target) {
-        target.bind = function(type, fn, context, isNative) {
-            IPubSub.bind(this, type, fn, context, isNative);
-            return this;
-        };
-        target.one = function(type, fn, context) {
-            IPubSub.one(this, type, fn, context);
-            return this;
-        };
-        target.unbind = function(type, fn, context) {
-            IPubSub.unbind(this, type, fn, context);
-            return this;
-        };
-        target.fire = function(type) {
-            var args = [];
-            args.push.apply(args, arguments);
-            args.shift();
-            IPubSub.fire(this, type, args);
-            return this;
-        };
-    }
+	exports.implement = function(target) {
+		target.bind = function(type, fn, context, isNative) {
+			IPubSub.bind(this, type, fn, context, isNative);
+			return this;
+		};
+		target.one = function(type, fn, context) {
+			IPubSub.one(this, type, fn, context);
+			return this;
+		};
+		target.unbind = function(type, fn, context) {
+			IPubSub.unbind(this, type, fn, context);
+			return this;
+		};
+		target.fire = function(type) {
+			var args = [];
+			args.push.apply(args, arguments);
+			args.shift();
+			IPubSub.fire(this, type, args);
+			return this;
+		};
+	}
 
-    return exports;
+	return exports;
 }({}));
 ;var bQuery = (function() {
 
@@ -296,7 +297,7 @@
 			var res = $();
 
 			this.map(function(node) {
-				res.merge(dom.querySelectorAll(query));
+				res.merge(node.querySelectorAll(query));
 			});
 
 			return res;
@@ -444,10 +445,18 @@
 			});
 			return this
 		},
-		toggleClass: function(klass) {
-			this.map(function(node) {
-				node.classList.toggle(klass);
-			});
+		toggleClass: function(klass, flag) {
+			if (arguments.length == 2) {
+				if (flag) {
+					return this.addClass(klass)
+				} else {
+					return this.removeClass(klass)
+				}
+			} else {
+				this.map(function(node) {
+					node.classList.toggle(klass);
+				});
+			}
 			return this
 		},
 		hasClass: function(klass) {
@@ -579,6 +588,20 @@
 
 	View.prototype.setID = function(id) {
 		this.__$base.attr("id", id);
+	};
+
+	View.prototype.setPosition = function(left, top) {
+		this.__$base.css({
+			top: top,
+			left: left
+		});
+	};
+
+	View.prototype.setSize = function(width, height) {
+		this.__$base.css({
+			width: width,
+			height: height
+		});
 	};
 
 	return View;
@@ -725,19 +748,628 @@ var TabPanelView = (function() {
 
 	return ButtonView;
 }());
-;var NoteView = (function() {
+;var NoteViewPageModel = (function() {
+
+	function NoteViewPageModel() {
+		this.__textBoxModelList = [];
+	}
+	IPubSub.implement(NoteViewPageModel.prototype)
+
+	NoteViewPageModel.prototype.appendTextBoxModel = function(model) {
+		this.__textBoxModelList.push(model);
+	};
+
+	NoteViewPageModel.prototype.removeTextBoxModel = function(model) {
+		var index = this.__textBoxModelList.indexOf(model);
+
+		this.__textBoxModelList.splice(index, 1);
+	};
+
+	NoteViewPageModel.prototype.save = function() {
+		var data = this.parseToNativeObject();
+
+		localStorage.setItem("NoteViewPageModel", JSON.stringify(data));
+	};
+
+	NoteViewPageModel.prototype.parseToNativeObject = function() {
+		var list = this.__textBoxModelList,
+			data = [];
+
+		for (var i = 0, max = list.length; i < max; i++) {
+			var model = list[i];
+			data.push(model.parseToNativeObject());
+		}
+
+		return data;
+	};
+
+	return NoteViewPageModel;
+}());
+;var Markdown = (function() {
+	var TokenType = {
+		NormalText: 0,
+		Header: 1,
+		Bold: 7,
+		Italic: 8,
+		HorizontalLine: 9,
+		Paragraph: 10,
+		List: 11,
+	};
+
+	var MarkdownToken = (function() {
+		function MarkdownToken(type, value) {
+			this.type = type || TokenType.NormalText;
+			this.value = value || "";
+			this.parent = null;
+			this.children = [];
+			this.indentLevel = 0;
+		};
+
+		MarkdownToken.prototype.appendChild = function(childToken) {
+			childToken.parent = this;
+			childToken.indentLevel = this.indentLevel + 1;
+			this.children.push(childToken);
+		};
+
+		MarkdownToken.prototype.print = function() {
+			var indent = new Array(this.indentLevel + 1).join("....");
+			if (this.type === TokenType.NormalText) {
+				console.log(indent + "<" + this.type + ">" + this.value + "</" + this.type + ">");
+			} else {
+				console.log(indent + "<" + this.type + ">");
+				for (var i = 0, max = this.children.length; i < max; i++) this.children[i].print();
+				console.log(indent + "</" + this.type + ">");
+			}
+		};
+
+		MarkdownToken.prototype.prev = function() {
+			var index = this.parent.children.indexOf(this);
+			if (this.parent.children[index - 1]) {
+				return this.parent.children[index - 1];
+			}
+			return null;
+		};
+
+		MarkdownToken.prototype.next = function() {
+			var index = this.parent.children.indexOf(this);
+			if (this.parent.children[index + 1]) {
+				return this.parent.children[index + 1];
+			}
+			return null;
+		};
+
+		return MarkdownToken;
+	}());
+
+
+	function parse(text) {
+		var rootNode = tokenize(text),
+			html = convertToHTML(rootNode);
+
+		return html;
+	};
+
+	function tokenize(text) {
+		var lines = text.split("\n"),
+			res = scope = new MarkdownToken(TokenType.Paragraph);
+
+		for (var i = 0, max = lines.length; i < max; i++) {
+			var line = lines[i],
+				ma = null;
+
+			//0. preprocessing
+			var indentLevel = 0;
+			if (ma = line.match(/^(\t+)(.*)$/)) {
+				indentLevel = ma[1].length;
+				line = ma[2];
+			}
+			while (indentLevel > scope.indentLevel) {
+				var newToken = new MarkdownToken(TokenType.Paragraph);
+				scope.appendChild(newToken);
+				scope = newToken;
+			}
+			while (indentLevel < scope.indentLevel) {
+				scope = scope.parent;
+			}
+
+			//1. line-head function
+			if (line === "") {
+				while (scope.indentLevel > 0) {
+					scope = scope.parent;
+				}
+				continue;
+			}
+
+			if (ma = line.match(/^#(.*)$/)) {
+				var newToken = new MarkdownToken(TokenType.Header, ma[1]);
+				scope.appendChild(newToken);
+				continue;
+			}
+
+			if (line.match(/^(?:-{3,}|={3,}|\*{3,})$/)) {
+				var newToken = new MarkdownToken(TokenType.HorizontalLine);
+				scope.appendChild(newToken);
+				continue;
+			}
+
+			if (ma = line.match(/^\-[ \t]*(.*)?$/)) {
+				var newToken = new MarkdownToken(TokenType.List);
+				scope.appendChild(newToken);
+				scope = newToken;
+
+				line = ma[1];
+			}
+
+			//2. inline functions
+
+			if (line != "") {
+				var newToken = new MarkdownToken(TokenType.NormalText, line);
+				scope.appendChild(newToken);
+			}
+		}
+
+		return res;
+	};
+
+	function convertToHTML(rootNode) {
+		var html = convertToOpenHTML(rootNode)
+		for (var i = 0, max = rootNode.children.length; i < max; i++) {
+			html += convertToHTML(rootNode.children[i]);
+		}
+		html += convertToCloseHTML(rootNode)
+
+		return html;
+	};
+
+	function convertToOpenHTML(token) {
+		switch (token.type) {
+			case TokenType.Paragraph:
+				return "<div class='Markdown-block'>"
+				break;
+
+			case TokenType.List:
+				var prev = token.prev();
+				if (prev && prev.type === TokenType.List) {
+					return "<li class='Markdown-listItem'>"
+				}
+				return "<ul class='Markdown-list'><li class='Markdown-listItem'>";
+				break;
+
+			case TokenType.HorizontalLine:
+				return "<hr class='Markdown-horizontalLine'/>";
+				break;
+
+			case TokenType.Header:
+				var level = (token.indentLevel < 1) ?
+					1 :
+					(token.indentLevel > 6) ?
+					6 :
+					token.indentLevel;
+				return "<h" + level + " class='Markdown-header'>" + token.value + "</h" + level + ">";
+				break;
+
+			case TokenType.NormalText:
+				var prev = token.prev();
+				if (prev && prev.type === TokenType.NormalText) {
+					return token.value
+				}
+				return "<p class='Markdown-paragraph'>" + token.value;
+				break;
+		}
+
+		return "";
+	};
+
+	function convertToCloseHTML(token) {
+		switch (token.type) {
+			case TokenType.Paragraph:
+				return "</div>"
+				break;
+
+			case TokenType.List:
+				var next = token.next();
+				if (next && next.type === TokenType.List) {
+					return "</li>"
+				}
+				return "</li></ul>";
+				break;
+
+			case TokenType.NormalText:
+				var next = token.next();
+				if (next && next.type === TokenType.NormalText) {
+					return "";
+				}
+				return "</p>";
+				break;
+		}
+
+		return "";
+	};
+
+	return {
+		parse: parse
+	};
+}());
+;var KeyRecognizer = (function() {
+
+	function KeyRecognizer() {
+
+	}
+	IPubSub.implement(KeyRecognizer.prototype);
+
+	KeyRecognizer.prototype.listen = function(node) {
+		node.bind("keydown", this.__keyDownListener, this, true);
+	};
+
+	KeyRecognizer.prototype.unlisten = function(node) {
+		node.unbind("keydown", this.__keyDownListener, this, true);
+	};
+
+	KeyRecognizer.prototype.__keyDownListener = function(ev) {
+		var keys = [];
+		keys.push(ev.keyCode);
+
+		if (ev.keyCode !== KEYCODE.SHIFT && ev.shiftKey) keys.push(KEYCODE.SHIFT);
+		if (ev.keyCode !== KEYCODE.ALT && ev.altKey) keys.push(KEYCODE.ALT);
+		if (ev.keyCode !== KEYCODE.CTRL && ev.ctrlKey) keys.push(KEYCODE.CTRL);
+		if (ev.keyCode !== KEYCODE.CMD && ev.metaKey) keys.push(KEYCODE.CMD);
+
+		keys.sort(function(a, b) {
+			return a - b
+		});
+		this.fire(keys.join("+"), ev)
+	};
+
+	KeyRecognizer.prototype.register = function(pattern, callback, context) {
+		if (typeof pattern === "object") {
+			var patternList = arguments[0],
+				context = arguments[1],
+				callback = null;
+
+
+			for (var pattern in patternList) {
+				if (!patternList.hasOwnProperty(pattern)) continue
+				this.register(pattern, patternList[pattern], context);
+			}
+			return
+		}
+
+		var tokens = pattern.split("+"),
+			keys = [],
+			token;
+
+		while (token = tokens.pop()) {
+			token = token.toUpperCase();
+			if (token in KEYCODE) keys.push(KEYCODE[token]);
+		}
+
+		keys.sort(function(a, b) {
+			return a - b
+		});
+
+		var pattern = keys.join("+");
+
+		this.bind(pattern, callback, context);
+	};
+
+	return KeyRecognizer;
+}());
+;var NoteViewTextBoxModel = (function() {
+	function NoteViewTextBoxModel() {
+		this.__position = {
+			top: 0,
+			left: 0,
+		};
+		this.__value = "";
+	}
+	IPubSub.implement(NoteViewTextBoxModel.prototype);
+
+	NoteViewTextBoxModel.prototype.val = function(text) {
+		return (arguments.length === 0) ? this.getVal() : this.setVal(text);
+	};
+	NoteViewTextBoxModel.prototype.getVal = function() {
+		return this.__value;
+	};
+	NoteViewTextBoxModel.prototype.setVal = function(text) {
+		this.__value = text;
+		this.fire("update", this, this.getVal());
+	};
+
+	NoteViewTextBoxModel.prototype.pos = function(top, left) {
+		return (arguments.length === 0) ? this.getPos() : this.setPos(top, left);
+	};
+	NoteViewTextBoxModel.prototype.getPos = function() {
+		//return by value(not by reference)
+		return {
+			top: this.__position.top,
+			left: this.__position.left
+		};
+	};
+	NoteViewTextBoxModel.prototype.setPos = function(top, left) {
+		this.__position = {
+			top: top,
+			left: left
+		};
+		this.fire("updatePosition", this, this.getPos());
+	};
+
+	NoteViewTextBoxModel.prototype.parseToNativeObject = function() {
+		return {
+			position: this.getPos(),
+			value: this.getVal()
+		};
+	};
+
+	return NoteViewTextBoxModel;
+}());
+;var NoteViewTextBox = (function() {
+
+	//static variables
+	var $textarea = $("<textarea class='NoteViewTextBox-textarea'></textarea>")
+		.appendTo(document.body),
+
+		textarea = $textarea[0],
+
+		$cursorBufferBase = $("<div class='NoteViewTextBox-base'></div>")
+		.appendTo(document.body),
+
+		$cursorBuffer = $("<div class='NoteViewTextBox-markdown'></div>")
+		.appendTo($cursorBufferBase),
+
+		$cursor = $("<div class='NoteViewTextBox-Cursor'></div>"),
+
+		lastSelectionStart = -1;
+
+
+	function NoteViewTextBox() {
+		this.super();
+		this.__$base = $("<div class='NoteViewTextBox-base'></div>");
+		this.__$base.bind("click", this.__click, this, true);
+		this.__$base.bind("mousedown", this.__mousedown, this, true);
+
+		this.__$markdown = $("<div class='NoteViewTextBox-markdown'></div>")
+		this.__$markdown.appendTo(this.__$base);
+
+		this.bind("__cursorUpdate", this.updateCursor, this);
+
+		this.__kr = new KeyRecognizer();
+		this.__kr.register({
+			"shift+tab": this.__inputDeleteTab,
+			"tab": this.__inputTab,
+			"enter": this.__inputEnter,
+		}, this);
+
+		this.__dragging = {
+			startX: null,
+			startY: null,
+			startMX: null,
+			startMY: null,
+		};
+
+		this.model = new NoteViewTextBoxModel();
+		this.model.bind("update", this.update, this);
+		this.__updateTimerID = null;
+	}
+	extendClass(NoteViewTextBox, View);
+
+
+	/*-------------------------------------------------
+	 * Event Handlers
+	 */
+	NoteViewTextBox.prototype.__click = function(ev) {
+		this.setFocus();
+		ev.stopPropagation();
+	};
+
+	NoteViewTextBox.prototype.__input = function(ev) {
+		this.model.val(textarea.value);
+	};
+
+	NoteViewTextBox.prototype.__blurTextArea = function(ev) {
+		this.lostFocus();
+	};
+
+	NoteViewTextBox.prototype.__inputTab = function(ev) {
+		var val = textarea.value,
+			selectionStart = textarea.selectionStart;
+
+		textarea.value =
+			val.slice(0, textarea.selectionStart) +
+			"\t" +
+			val.slice(textarea.selectionEnd)
+
+		textarea.selectionStart =
+			textarea.selectionEnd =
+			selectionStart + 1;
+
+		this.model.val(textarea.value);
+		ev.preventDefault();
+	};
+
+	NoteViewTextBox.prototype.__inputDeleteTab = function(ev) {
+		var val = textarea.value,
+			selectionStart = textarea.selectionStart;
+
+		var lastLine = val.slice(0, textarea.selectionStart).split("\n").pop(),
+			len = lastLine.length,
+			indentLevel = lastLine.match(/^\t*/)[0].length;
+
+		if (indentLevel > 0) {
+			textarea.value =
+				val.slice(0, textarea.selectionStart - len) +
+				lastLine.slice(1) +
+				val.slice(textarea.selectionEnd)
+
+			textarea.selectionStart =
+				textarea.selectionEnd =
+				selectionStart - 1;
+
+			this.model.val(textarea.value);
+		}
+		ev.preventDefault();
+	};
+
+	NoteViewTextBox.prototype.__inputEnter = function(ev) {
+		var val = textarea.value,
+			selectionStart = textarea.selectionStart;
+
+		var lastLine = val.slice(0, textarea.selectionStart).split("\n").pop(),
+			indentLevel = lastLine.match(/^\t*/)[0].length;
+
+		textarea.value =
+			val.slice(0, textarea.selectionStart) +
+			"\n" + Array(indentLevel + 1).join("\t") +
+			val.slice(textarea.selectionEnd)
+
+		textarea.selectionStart =
+			textarea.selectionEnd =
+			selectionStart + 1 + indentLevel;
+
+		this.model.val(textarea.value);
+		ev.preventDefault();
+	};
+	NoteViewTextBox.prototype.__mousedown = function(ev) {
+		this.__$base.addClass("-drag");
+
+		document.body.bind("mousemove", this.__mousemoveForMove, this, true);
+		document.body.bind("mouseup", this.__mouseupForMove, this, true);
+
+		this.__startMX = ev.x;
+		this.__startMY = ev.y;
+		this.__startX = parseInt(this.__$base.css("left"));
+		this.__startY = parseInt(this.__$base.css("top"));
+	};
+
+	NoteViewTextBox.prototype.__mouseupForMove = function(ev) {
+		this.__$base.removeClass("-drag");
+
+		document.body.unbind("mousemove", this.__mousemoveForMove, this, true);
+		document.body.unbind("mouseup", this.__mouseupForMove, this, true);
+
+		this.model.pos(
+			parseInt(this.__$base.css("top")),
+			parseInt(this.__$base.css("left"))
+		)
+	};
+
+	NoteViewTextBox.prototype.__mousemoveForMove = function(ev) {
+		var left = Math.round((this.__startX + (ev.x - this.__startMX)) / GRID_SIZE) * GRID_SIZE,
+			top = Math.round((this.__startY + (ev.y - this.__startMY)) / GRID_SIZE) * GRID_SIZE;
+
+		if (left < 0) left = 0;
+		if (top < 0) top = 0;
+
+		this.__$base.css({
+			left: left,
+			top: top
+		});
+	};
+
+
+	/*-------------------------------------------------
+	 * methods
+	 */
+	NoteViewTextBox.prototype.remove = function() {
+		this.fire("beforeRemove", this);
+
+		this.__$base.remove();
+
+		this.fire("remove", this);
+	};
+
+	NoteViewTextBox.prototype.setFocus = function() {
+		this.__$base.addClass("-edit");
+		$textarea.bind("input", this.__input, this, true);
+		$textarea.bind("blur", this.__blurTextArea, this, true);
+		$textarea.val(this.model.val());
+		$textarea.focus();
+		this.__kr.listen($textarea);
+
+		if (this.__updateTimerID === null) {
+			var that = this;
+			this.__updateTimerID = setInterval(function() {
+				that.fire("__cursorUpdate");
+			}, 50);
+		}
+
+		$cursorBufferBase.css({
+			top: 0,
+			left: 0
+		});
+	};
+
+	NoteViewTextBox.prototype.lostFocus = function() {
+		this.__$base.removeClass("-edit");
+		$textarea.unbind("input", this.__input, this, true);
+		$textarea.unbind("blur", this.__blurTextArea, this, true);
+		this.__kr.unlisten($textarea);
+
+		clearInterval(this.__updateTimerID);
+		this.__updateTimerID = null;
+		this.model.val(textarea.value);
+
+		if (this.model.val() === "") this.remove();
+	};
+
+	NoteViewTextBox.prototype.update = function() {
+		var html = Markdown.parse(this.model.val());
+
+		this.__$markdown.html(html);
+
+		this.fire("update", this);
+	};
+
+	NoteViewTextBox.prototype.updateCursor = function() {
+
+	};
+
+	return NoteViewTextBox;
+}());
+;GRID_SIZE = 20;
+var NoteView = (function() {
 
 	function NoteView() {
 		this.super();
-
 		this.__$base = $("<div class='NoteView-base'></div>");
+		this.__$base.bind("click", this.__click, this, true);
 
+		this.model = new NoteViewPageModel();
 	}
 	extendClass(NoteView, View);
 
+	NoteView.prototype.__click = function(ev) {
+		var textBox = this.__addTextBox(),
+			x = Math.round(ev.offsetX / GRID_SIZE) * GRID_SIZE - 30,
+			y = Math.round(ev.offsetY / GRID_SIZE) * GRID_SIZE - 50;
+
+		this.model.appendTextBoxModel(textBox.model);
+		textBox.bind("beforeRemove", this.__beforeRemoveTextBox, this);
+		textBox.bind("remove", this.__removeTextBox, this)
+
+		if (x < 0) x = 0;
+		if (y < 0) y = 0;
+
+		textBox.setPosition(x, y);
+		textBox.setFocus();
+	};
+
+	NoteView.prototype.__addTextBox = function() {
+		var textBox = new NoteViewTextBox();
+		textBox.appendTo(this);
+		return textBox;
+	};
+
+	NoteView.prototype.__beforeRemoveTextBox = function(textBox) {
+		this.model.removeTextBoxModel(textBox.model);
+	};
+
+	NoteView.prototype.__removeTextBox = function(textBox) {
+		this.model.save();
+	};
+
 	return NoteView;
 }());
-;window.addEventListener("DOMContentLoaded", init);
+;;window.addEventListener("DOMContentLoaded", init);
 
 function init() {
 	toolbar = new ToolbarView();
@@ -778,12 +1410,12 @@ function init() {
 	toggleSideMenu = new ButtonView("メニューをたたむ");
 	toggleSideMenu.appendTo(toolbar);
 	toggleSideMenu.bind("click", function() {
-		if (sideMenu.$base.css("marginLeft") === "-200px") {
-			sideMenu.$base.animate(function(x) {
+		if (sideMenu.__$base.css("marginLeft") === "-200px") {
+			sideMenu.__$base.animate(function(x) {
 				this.css("marginLeft", -200 * (1 - x * x) + "px");
 			}, 100);
 		} else {
-			sideMenu.$base.animate(function(x) {
+			sideMenu.__$base.animate(function(x) {
 				this.css("marginLeft", -200 * x * x + "px");
 			}, 100);
 		}
