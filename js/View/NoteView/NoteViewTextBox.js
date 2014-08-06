@@ -1,7 +1,7 @@
 //#include("/View/View.js");
 //#include("/Service/Markdown.js");
 //#include("/Service/KeyRecognizer.js");
-//#include("/View/NoteView/NoteViewTextBoxModel.js");
+//#include("/Model/NoteViewTextBoxModel.js");
 
 var NoteViewTextBox = (function() {
 

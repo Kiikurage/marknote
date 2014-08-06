@@ -1,6 +1,6 @@
 //#include("/View/View.js");
-//#include("/View/NoteView/NoteViewPageModel.js");
 //#include("/View/NoteView/NoteViewTextBox.js");
+//#include("/Model/NoteViewPageModel.js");
 
 GRID_SIZE = 20;
 var NoteView = (function() {
