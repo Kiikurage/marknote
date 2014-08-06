@@ -19,7 +19,7 @@ var NoteView = (function() {
 			x = Math.round(ev.offsetX / GRID_SIZE) * GRID_SIZE - 30,
 			y = Math.round(ev.offsetY / GRID_SIZE) * GRID_SIZE - 50;
 
-		this.model.appendTextBoxModel(textBox.model);
+		this.model.appendTextBox(textBox.model);
 		textBox.bind("beforeRemove", this.__beforeRemoveTextBox, this);
 		textBox.bind("remove", this.__removeTextBox, this)
 
@@ -37,7 +37,7 @@ var NoteView = (function() {
 	};
 
 	NoteView.prototype.__beforeRemoveTextBox = function(textBox) {
-		this.model.removeTextBoxModel(textBox.model);
+		this.model.removeTextBox(textBox.model);
 	};
 
 	NoteView.prototype.__removeTextBox = function(textBox) {

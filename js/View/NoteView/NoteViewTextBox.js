@@ -63,7 +63,7 @@ var NoteViewTextBox = (function() {
 	};
 
 	NoteViewTextBox.prototype.__input = function(ev) {
-		this.model.val(textarea.value);
+		this.model.text = textarea.value;
 	};
 
 	NoteViewTextBox.prototype.__blurTextArea = function(ev) {
@@ -83,7 +83,7 @@ var NoteViewTextBox = (function() {
 			textarea.selectionEnd =
 			selectionStart + 1;
 
-		this.model.val(textarea.value);
+		this.model.text = textarea.value;
 		ev.preventDefault();
 	};
 
@@ -105,7 +105,7 @@ var NoteViewTextBox = (function() {
 				textarea.selectionEnd =
 				selectionStart - 1;
 
-			this.model.val(textarea.value);
+			this.model.text = textarea.value;
 		}
 		ev.preventDefault();
 	};
@@ -126,7 +126,7 @@ var NoteViewTextBox = (function() {
 			textarea.selectionEnd =
 			selectionStart + 1 + indentLevel;
 
-		this.model.val(textarea.value);
+		this.model.text = textarea.value;
 		ev.preventDefault();
 	};
 	NoteViewTextBox.prototype.__mousedown = function(ev) {
@@ -182,7 +182,7 @@ var NoteViewTextBox = (function() {
 		this.__$base.addClass("-edit");
 		$textarea.bind("input", this.__input, this, true);
 		$textarea.bind("blur", this.__blurTextArea, this, true);
-		$textarea.val(this.model.val());
+		$textarea.val(this.model.text);
 		$textarea.focus();
 		this.__kr.listen($textarea);
 
@@ -207,13 +207,13 @@ var NoteViewTextBox = (function() {
 
 		clearInterval(this.__updateTimerID);
 		this.__updateTimerID = null;
-		this.model.val(textarea.value);
+		this.model.text = textarea.value;
 
 		if (this.model.val() === "") this.remove();
 	};
 
 	NoteViewTextBox.prototype.update = function() {
-		var html = Markdown.parse(this.model.val());
+		var html = Markdown.parse(this.model.text);
 
 		this.__$markdown.html(html);
 
