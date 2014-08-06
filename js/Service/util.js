@@ -16,6 +16,11 @@
 	exports.extendClass = function(childClass, superClass) {
 		childClass.prototype = new superClass();
 		childClass.prototype.constructor = childClass;
+
+		for (var i in superClass) {
+			if (!superClass.hasOwnProperty(i)) continue;
+			childClass[i] = superClass[i];
+		}
 	};
 
 	function getPrototype(target) {

@@ -34,6 +34,7 @@
 		},
 		remove: function() {
 			this.map(function(child) {
+				if (!child.parentNode) return;
 				child.parentNode.removeChild(child);
 			});
 			return this;

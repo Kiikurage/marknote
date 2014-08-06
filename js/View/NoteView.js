@@ -1,2 +1,2 @@
 //#include("/View/NoteView/NoteView.js");
-//#include("/View/NoteView/NoteViewTextBox.js");
+//#include("/View/NoteView/NoteViewTextbox.js");
