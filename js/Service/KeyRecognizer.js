@@ -27,15 +27,14 @@ var KeyRecognizer = (function() {
 		keys.sort(function(a, b) {
 			return a - b
 		});
-		this.fire(keys.join("+"), ev)
+		this.fire(keys.join("+"), ev);
 	};
 
 	KeyRecognizer.prototype.register = function(pattern, callback, context) {
 		if (typeof pattern === "object") {
 			var patternList = arguments[0],
-				context = arguments[1],
-				callback = null;
-
+				callback = null,
+				context = arguments[1];
 
 			for (var pattern in patternList) {
 				if (!patternList.hasOwnProperty(pattern)) continue

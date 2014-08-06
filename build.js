@@ -240,6 +240,8 @@
 	function bQuery() {}
 	IPubSub.implement(bQuery.prototype);
 	IPubSub.implement(HTMLElement.prototype);
+	IPubSub.implement(window);
+
 	extend(bQuery.prototype, {
 		bind: function(type, fn, context, isNative) {
 			this.map(function(node) {
@@ -989,15 +991,14 @@ var TabPanelView = (function() {
 		keys.sort(function(a, b) {
 			return a - b
 		});
-		this.fire(keys.join("+"), ev)
+		this.fire(keys.join("+"), ev);
 	};
 
 	KeyRecognizer.prototype.register = function(pattern, callback, context) {
 		if (typeof pattern === "object") {
 			var patternList = arguments[0],
-				context = arguments[1],
-				callback = null;
-
+				callback = null,
+				context = arguments[1];
 
 			for (var pattern in patternList) {
 				if (!patternList.hasOwnProperty(pattern)) continue
@@ -1489,47 +1490,119 @@ var NoteView = (function() {
 
 	return NoteView;
 }());
-;;window.addEventListener("DOMContentLoaded", init);
+;;/*
+test data
 
-function init() {
-	toolbar = new ToolbarView();
-	toolbar.setID("toolbar");
-	toolbar.append($("#logo"));
-	toolbar.insertBefore($("#maincontainer"));
+{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array","value":[{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":0},"_text":{"type":"native","value":"#Marknote\nver. 0.1.0\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":80},"_text":{"type":"native","value":"\t#実装済みの機能\n\t-テキストエディット(カーソルが表示されない)\n\t-テキストボックスの再配置\n\t-セーブ/ロード"},"_focus":{"type":"native","value":false}}}]}}}
 
-	btnNewFile = new ButtonView("新規作成");
-	btnNewFile.appendTo(toolbar);
-	btnNewFile.bind("click", function() {
-		p1Text.html(p1Text.html() + "新規作成<br />");
-	});
+*/
 
-	btnSave = new ButtonView("保存");
-	btnSave.appendTo(toolbar);
-	btnSave.bind("click", function() {
-		p1Text.html(p1Text.html() + "保存<br />");
-	});
+var app = (function() {
 
-	btnSave = new ButtonView("Import");
-	btnSave.appendTo(toolbar);
-	btnSave.bind("click", function() {
-		p1Text.html(p1Text.html() + "Import<br />");
-	});
+	var app = {};
 
-	btnSave = new ButtonView("Export");
-	btnSave.appendTo(toolbar);
-	btnSave.bind("click", function() {
-		p1Text.html(p1Text.html() + "Export<br />");
-	});
+	app.init = function() {
+		var toolbar = new ToolbarView();
+		toolbar.setID("toolbar");
+		toolbar.append($("#logo"));
+		toolbar.insertBefore($("#maincontainer"));
+		app.toolbar = toolbar;
 
-	sideMenu = new SideMenuView();
-	sideMenu.setID("sidemenu");
-	sideMenu.append($("<p>new file.md</p>"));
-	sideMenu.append($("<p>new file 2.md</p>"));
-	sideMenu.appendTo($("#maincontainer"));
+		var btnNewFile = new ButtonView("新規作成(&#8963;&#8984;N)");
+		btnNewFile.appendTo(toolbar);
+		btnNewFile.bind("click", app.newFile, this);
+		app.btnNewFile = btnNewFile;
 
-	toggleSideMenu = new ButtonView("メニューをたたむ");
-	toggleSideMenu.appendTo(toolbar);
-	toggleSideMenu.bind("click", function() {
+		var btnOpen = new ButtonView("開く(&#8984;O)");
+		btnOpen.appendTo(toolbar);
+		btnOpen.bind("click", app.openFile, app);
+		app.btnOpen = btnOpen;
+
+		var btnSave = new ButtonView("保存(&#8984;S)");
+		btnSave.appendTo(toolbar);
+		btnSave.bind("click", app.saveFile, app);
+		app.btnSave = btnSave;
+
+		var btnImport = new ButtonView("Import");
+		btnImport.appendTo(toolbar);
+		btnImport.bind("click", app.importFile, app);
+		app.btnImport = btnImport;
+
+		var btnExport = new ButtonView("Export");
+		btnExport.appendTo(toolbar);
+		btnExport.bind("click", app.exportFile, app);
+		app.btnExport = btnExport;
+
+		var sideMenu = new SideMenuView();
+		sideMenu.setID("sidemenu");
+		sideMenu.__$base.css("marginLeft", -200);
+		sideMenu.appendTo($("#maincontainer"));
+		app.sideMenu = sideMenu;
+
+		var btnToggleSideMenu = new ButtonView("メニューの開閉(&#8963;&#8984;T)");
+		btnToggleSideMenu.appendTo(toolbar);
+		btnToggleSideMenu.bind("click", app.toggleSideMenu, app);
+		app.btnToggleSideMenu = btnToggleSideMenu;
+
+		var noteView = new NoteView();
+		noteView.setID("noteview");
+		noteView.appendTo($("#maincontainer"));
+		app.noteView = noteView;
+
+		var kr = new KeyRecognizer();
+		kr.listen(document.body);
+		kr.register({
+			"cmd+S": app.saveFile,
+			"cmd+O": app.openFile,
+			"ctrl+cmd+N": app.newFile,
+			"ctrl+cmd+T": app.toggleSideMenu,
+		}, app);
+		app.kr = kr;
+	};
+
+	app.saveFile = function(ev) {
+		console.log("セーブ");
+		app.noteView.model.save("test");
+
+		if (ev) ev.preventDefault();
+	};
+
+	app.openFile = function(ev) {
+		console.log("開く");
+		var savedata = Model.load("test");
+		if (!savedata) {
+			console.log("セーブデータが存在しません");
+			return;
+		}
+		app.noteView.bindModel(savedata);
+
+		if (ev) ev.preventDefault();
+	};
+
+	app.newFile = function(ev) {
+		console.log("新規作成");
+		app.noteView.bindModel(new NoteViewPageModel());
+
+		if (ev) ev.preventDefault();
+	};
+
+	app.importFile = function(ev) {
+		console.log("Import");
+		console.log("未実装");
+
+		if (ev) ev.preventDefault();
+	};
+
+	app.exportFile = function(ev) {
+		console.log("Export");
+		console.log("未実装");
+
+		if (ev) ev.preventDefault();
+	};
+
+	app.toggleSideMenu = function(ev) {
+		var sideMenu = app.sideMenu;
+
 		if (sideMenu.__$base.css("marginLeft") === "-200px") {
 			sideMenu.__$base.animate(function(x) {
 				this.css("marginLeft", -200 * (1 - x * x) + "px");
@@ -1539,37 +1612,10 @@ function init() {
 				this.css("marginLeft", -200 * x * x + "px");
 			}, 100);
 		}
-	}, this);
+	};
 
-	noteView = new NoteView();
-	noteView.setID("noteview");
-	noteView.appendTo($("#maincontainer"));
+	window.bind("DOMContentLoaded", app.init, app, true);
 
-	kr = new KeyRecognizer();
-	kr.listen(document.body);
-	kr.register({
-		"cmd+S": function(ev) {
-			console.log("セーブ");
-			noteView.model.save("test");
-			ev.preventDefault();
-		},
-		"cmd+O": function(ev) {
-			console.log("開く");
-			var savedata = Model.load("test");
-			if (!savedata) {
-				console.log("セーブデータが存在しない");
-				return;
-			}
-			noteView.bindModel(savedata);
-			ev.preventDefault();
-		},
-		"ctrl+cmd+N": function(ev) {
-			console.log("新規作成");
-			noteView.bindModel(new NoteViewPageModel());
-			noteView.model.save("test");
-			ev.preventDefault();
-		},
-	})
-
-}
+	return app;
+}());
 ;

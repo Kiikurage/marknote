@@ -4,6 +4,8 @@ var bQuery = (function() {
 	function bQuery() {}
 	IPubSub.implement(bQuery.prototype);
 	IPubSub.implement(HTMLElement.prototype);
+	IPubSub.implement(window);
+
 	extend(bQuery.prototype, {
 		bind: function(type, fn, context, isNative) {
 			this.map(function(node) {
