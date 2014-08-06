@@ -10,10 +10,11 @@ var NoteViewPageModel = (function() {
 	NoteViewPageModel.__record("textboxes");
 
 	NoteViewPageModel.prototype.appendTextbox = function(model) {
-		if (this.textboxes.indexOf(model) !== -1) return;
+		if (this.textboxes.indexOf(model) === -1) {
+			this.textboxes.push(model);
+		}
 
 		model.bind("update", this.__updateTextbox, this)
-		this.textboxes.push(model);
 
 		this.fire("update");
 	};

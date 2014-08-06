@@ -10,6 +10,9 @@ var IPubSub = (function(exports) {
 	}
 
 	exports.bind = function(publisher, type, fn, context, isNative) {
+		//Prevent for register duplication
+		exports.unbind(publisher, type, fn, context);
+
 		var publisherID = getPublihserId(publisher, true);
 
 		var callbackList = callbackDict[publisherID];
