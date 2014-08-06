@@ -1201,7 +1201,7 @@ var ModelTest = (function() {
 		lastSelectionStart = -1;
 
 
-	function NoteViewTextbox(model) {
+	function NoteViewTextbox() {
 		this.super();
 		this.__$base = $("<div class='NoteViewTextbox-base'></div>");
 		this.__$base.bind("click", this.__click, this, true);
@@ -1223,14 +1223,16 @@ var ModelTest = (function() {
 			startMX: null,
 			startMY: null,
 		};
-
-		this.model = model || new NoteViewTextboxModel();
-		this.model.bind("update", this.update, this);
-
-		this.update();
 	}
 	extendClass(NoteViewTextbox, View);
 
+	NoteViewTextbox.prototype.bindModel = function(model) {
+		this.model = model;
+		model.view = this;
+		this.model.bind("update", this.update, this);
+
+		this.update();
+	};
 
 	/*-------------------------------------------------
 	 * Event Handlers
@@ -1343,8 +1345,6 @@ var ModelTest = (function() {
 	 * remove
 	 */
 	NoteViewTextbox.prototype.remove = function() {
-		this.fire("beforeRemove", this);
-
 		this.__$base.remove();
 
 		this.fire("remove", this);
@@ -1406,7 +1406,7 @@ var ModelTest = (function() {
 			this.textboxes.push(model);
 		}
 
-		model.bind("update", this.__updateTextbox, this)
+		model.bind("update", this.update, this)
 
 		this.fire("update");
 	};
@@ -1414,14 +1414,14 @@ var ModelTest = (function() {
 	NoteViewPageModel.prototype.removeTextbox = function(model) {
 		var index = this.textboxes.indexOf(model);
 		if (index === -1) return;
-
-		model.unbind("update", this.__updateTextbox, this)
 		this.textboxes.splice(index, 1);
+
+		model.unbind("update", this.update, this)
 
 		this.fire("update");
 	};
 
-	NoteViewPageModel.prototype.__updateTextbox = function() {
+	NoteViewPageModel.prototype.update = function() {
 		this.fire("update");
 	};
 
@@ -1434,20 +1434,29 @@ var NoteView = (function() {
 		this.super();
 		this.__$base = $("<div class='NoteView-base'></div>");
 		this.__$base.bind("click", this.__click, this, true);
-
-		this.model = model || new NoteViewPageModel();
-		this.model.bind("update", this.update, this);
-
-		this.update();
 	}
 	extendClass(NoteView, View);
+
+	NoteView.prototype.bindModel = function(model) {
+		this.__$base.children().remove();
+
+		this.model = model;
+		model.view = this;
+
+		this.model.bind("update", this.update, this);
+
+		var models = model.textboxes;
+		for (var i = 0, max = models.length; i < max; i++) {
+			this.__addTextbox(models[i]);
+		}
+
+		this.update();
+	};
 
 	NoteView.prototype.__click = function(ev) {
 		var textbox = this.__addTextbox(),
 			x = Math.round(ev.offsetX / GRID_SIZE) * GRID_SIZE - 30,
 			y = Math.round(ev.offsetY / GRID_SIZE) * GRID_SIZE - 50;
-
-		textbox.bind("beforeRemove", this.__beforeRemoveTextbox, this);
 
 		if (x < 0) x = 0;
 		if (y < 0) y = 0;
@@ -1458,19 +1467,24 @@ var NoteView = (function() {
 	};
 
 	NoteView.prototype.__addTextbox = function(model) {
-		var textbox = new NoteViewTextbox(model);
+		var model = model || new NoteViewTextboxModel(),
+			textbox = new NoteViewTextbox();
+
+		textbox.bindModel(model);
 		textbox.appendTo(this);
-		this.model.appendTextbox(textbox.model);
+		this.model.appendTextbox(model);
+
+		textbox.bind("remove", this.__removeTextbox, this);
 
 		return textbox;
 	};
 
-	NoteView.prototype.__beforeRemoveTextbox = function(textbox) {
+	NoteView.prototype.__removeTextbox = function(textbox) {
 		this.model.removeTextbox(textbox.model);
 	};
 
 	NoteView.prototype.update = function() {
-		this.model.save("test");
+		this.fire("update");
 	};
 
 	return NoteView;
@@ -1530,5 +1544,32 @@ function init() {
 	noteView = new NoteView();
 	noteView.setID("noteview");
 	noteView.appendTo($("#maincontainer"));
+
+	kr = new KeyRecognizer();
+	kr.listen(document.body);
+	kr.register({
+		"cmd+S": function(ev) {
+			console.log("セーブ");
+			noteView.model.save("test");
+			ev.preventDefault();
+		},
+		"cmd+O": function(ev) {
+			console.log("開く");
+			var savedata = Model.load("test");
+			if (!savedata) {
+				console.log("セーブデータが存在しない");
+				return;
+			}
+			noteView.bindModel(savedata);
+			ev.preventDefault();
+		},
+		"ctrl+cmd+N": function(ev) {
+			console.log("新規作成");
+			noteView.bindModel(new NoteViewPageModel());
+			noteView.model.save("test");
+			ev.preventDefault();
+		},
+	})
+
 }
 ;

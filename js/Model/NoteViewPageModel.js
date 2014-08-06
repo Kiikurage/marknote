@@ -14,7 +14,7 @@ var NoteViewPageModel = (function() {
 			this.textboxes.push(model);
 		}
 
-		model.bind("update", this.__updateTextbox, this)
+		model.bind("update", this.update, this)
 
 		this.fire("update");
 	};
@@ -22,14 +22,14 @@ var NoteViewPageModel = (function() {
 	NoteViewPageModel.prototype.removeTextbox = function(model) {
 		var index = this.textboxes.indexOf(model);
 		if (index === -1) return;
-
-		model.unbind("update", this.__updateTextbox, this)
 		this.textboxes.splice(index, 1);
+
+		model.unbind("update", this.update, this)
 
 		this.fire("update");
 	};
 
-	NoteViewPageModel.prototype.__updateTextbox = function() {
+	NoteViewPageModel.prototype.update = function() {
 		this.fire("update");
 	};
 
