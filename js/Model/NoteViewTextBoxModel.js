@@ -9,6 +9,7 @@ var NoteViewTextboxModel = (function() {
 	NoteViewTextboxModel.__record("x");
 	NoteViewTextboxModel.__record("y");
 	NoteViewTextboxModel.__record("text");
+	NoteViewTextboxModel.__record("focus");
 
 	return NoteViewTextboxModel;
 }());

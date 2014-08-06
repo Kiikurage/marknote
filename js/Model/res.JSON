@@ -1,0 +1,29 @@
+{
+	"type": "NoteViewPageModel",
+	"value": {
+		"_textboxes": {
+			"type": "array",
+			"value": [{
+				"type": "NoteViewTextboxModel",
+				"value": {
+					"_x": {
+						"type": "native",
+						"value": 0
+					},
+					"_y": {
+						"type": "native",
+						"value": 0
+					},
+					"_text": {
+						"type": "native",
+						"value": "#marknote\nそれなりに、完成形に近づいてきました\n\t#なにができるの？\n\t-保存ができます\n\t-やるじゃん"
+					},
+					"_focus": {
+						"type": "native",
+						"value": false
+					}
+				}
+			}]
+		}
+	}
+}

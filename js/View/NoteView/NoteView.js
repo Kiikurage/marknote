@@ -30,7 +30,6 @@ var NoteView = (function() {
 		textbox.model.x = x;
 		textbox.model.y = y;
 		textbox.setFocus();
-		console.log(textbox);
 	};
 
 	NoteView.prototype.__addTextbox = function(model) {

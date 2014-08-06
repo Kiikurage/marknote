@@ -108,6 +108,9 @@
 	}
 
 	exports.bind = function(publisher, type, fn, context, isNative) {
+		//Prevent for register duplication
+		exports.unbind(publisher, type, fn, context);
+
 		var publisherID = getPublihserId(publisher, true);
 
 		var callbackList = callbackDict[publisherID];
@@ -1181,6 +1184,7 @@ var ModelTest = (function() {
 	NoteViewTextboxModel.__record("x");
 	NoteViewTextboxModel.__record("y");
 	NoteViewTextboxModel.__record("text");
+	NoteViewTextboxModel.__record("focus");
 
 	return NoteViewTextboxModel;
 }());
@@ -1206,13 +1210,11 @@ var ModelTest = (function() {
 		this.__$markdown = $("<div class='NoteViewTextbox-markdown'></div>")
 		this.__$markdown.appendTo(this.__$base);
 
-		this.bind("__cursorUpdate", this.updateCursor, this);
-
 		this.__kr = new KeyRecognizer();
 		this.__kr.register({
 			"shift+tab": this.__inputDeleteTab,
 			"tab": this.__inputTab,
-			"enter": this.__inputEnter,
+			"enter": this.__inputEnter
 		}, this);
 
 		this.__dragging = {
@@ -1221,11 +1223,9 @@ var ModelTest = (function() {
 			startMX: null,
 			startMY: null,
 		};
-		this.__isFocus = false;
 
 		this.model = model || new NoteViewTextboxModel();
 		this.model.bind("update", this.update, this);
-		this.__updateTimerID = null;
 
 		this.update();
 	}
@@ -1307,6 +1307,7 @@ var ModelTest = (function() {
 		this.model.text = textarea.value;
 		ev.preventDefault();
 	};
+
 	NoteViewTextbox.prototype.__mousedown = function(ev) {
 		this.__$base.addClass("-drag");
 
@@ -1339,7 +1340,7 @@ var ModelTest = (function() {
 
 
 	/*-------------------------------------------------
-	 * methods
+	 * remove
 	 */
 	NoteViewTextbox.prototype.remove = function() {
 		this.fire("beforeRemove", this);
@@ -1349,56 +1350,45 @@ var ModelTest = (function() {
 		this.fire("remove", this);
 	};
 
+	/*-------------------------------------------------
+	 * focus
+	 */
 	NoteViewTextbox.prototype.setFocus = function() {
-		this.__isFocus = true;
+		this.model.focus = true;
 
-		this.__$base.addClass("-edit");
 		$textarea.bind("input", this.__input, this, true);
 		$textarea.bind("blur", this.__blurTextArea, this, true);
 
 		textarea.value = this.model.text;
 		$textarea.focus();
+
 		this.__kr.listen($textarea);
-
-		if (this.__updateTimerID === null) {
-			var that = this;
-			this.__updateTimerID = setInterval(function() {
-				that.fire("__cursorUpdate");
-			}, 50);
-		}
-
-		this.update();
 	};
 
 	NoteViewTextbox.prototype.lostFocus = function() {
-		this.__isFocus = false;
+		this.model.focus = false;
 
-		this.__$base.removeClass("-edit");
 		$textarea.unbind("input", this.__input, this, true);
 		$textarea.unbind("blur", this.__blurTextArea, this, true);
 
-		this.model.text = textarea.value;
 		if (this.model.text === "") this.remove();
 		this.__kr.unlisten($textarea);
-
-		clearInterval(this.__updateTimerID);
-		this.__updateTimerID = null;
-
-		this.update();
 	};
 
+	/*-------------------------------------------------
+	 * update
+	 */
 	NoteViewTextbox.prototype.update = function() {
 		var model = this.model,
-			text = model.text;
+			text = model.text,
+			html = Markdown.parse(text);
 
-		var html = Markdown.parse(text);
-
+		this.__$base.toggleClass("-edit", model.focus);
 		this.__$markdown.html(html);
 		this.setPosition(model.x, model.y);
+
 		this.fire("update", this);
 	};
-
-	NoteViewTextbox.prototype.updateCursor = function() {};
 
 	return NoteViewTextbox;
 }());
@@ -1412,10 +1402,11 @@ var ModelTest = (function() {
 	NoteViewPageModel.__record("textboxes");
 
 	NoteViewPageModel.prototype.appendTextbox = function(model) {
-		if (this.textboxes.indexOf(model) !== -1) return;
+		if (this.textboxes.indexOf(model) === -1) {
+			this.textboxes.push(model);
+		}
 
 		model.bind("update", this.__updateTextbox, this)
-		this.textboxes.push(model);
 
 		this.fire("update");
 	};
@@ -1464,7 +1455,6 @@ var NoteView = (function() {
 		textbox.model.x = x;
 		textbox.model.y = y;
 		textbox.setFocus();
-		console.log(textbox);
 	};
 
 	NoteView.prototype.__addTextbox = function(model) {
