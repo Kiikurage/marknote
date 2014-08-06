@@ -748,6 +748,43 @@ var TabPanelView = (function() {
 
 	return ButtonView;
 }());
+;var NoteViewPageModel = (function() {
+
+	function NoteViewPageModel() {
+		this.__textBoxModelList = [];
+	}
+	IPubSub.implement(NoteViewPageModel.prototype)
+
+	NoteViewPageModel.prototype.appendTextBoxModel = function(model) {
+		this.__textBoxModelList.push(model);
+	};
+
+	NoteViewPageModel.prototype.removeTextBoxModel = function(model) {
+		var index = this.__textBoxModelList.indexOf(model);
+
+		this.__textBoxModelList.splice(index, 1);
+	};
+
+	NoteViewPageModel.prototype.save = function() {
+		var data = this.parseToNativeObject();
+
+		localStorage.setItem("NoteViewPageModel", JSON.stringify(data));
+	};
+
+	NoteViewPageModel.prototype.parseToNativeObject = function() {
+		var list = this.__textBoxModelList,
+			data = [];
+
+		for (var i = 0, max = list.length; i < max; i++) {
+			var model = list[i];
+			data.push(model.parseToNativeObject());
+		}
+
+		return data;
+	};
+
+	return NoteViewPageModel;
+}());
 ;var Markdown = (function() {
 	var TokenType = {
 		NormalText: 0,
@@ -1017,21 +1054,72 @@ var TabPanelView = (function() {
 
 	return KeyRecognizer;
 }());
+;var NoteViewTextBoxModel = (function() {
+	function NoteViewTextBoxModel() {
+		this.__position = {
+			top: 0,
+			left: 0,
+		};
+		this.__value = "";
+	}
+	IPubSub.implement(NoteViewTextBoxModel.prototype);
+
+	NoteViewTextBoxModel.prototype.val = function(text) {
+		return (arguments.length === 0) ? this.getVal() : this.setVal(text);
+	};
+	NoteViewTextBoxModel.prototype.getVal = function() {
+		return this.__value;
+	};
+	NoteViewTextBoxModel.prototype.setVal = function(text) {
+		this.__value = text;
+		this.fire("update", this, this.getVal());
+	};
+
+	NoteViewTextBoxModel.prototype.pos = function(top, left) {
+		return (arguments.length === 0) ? this.getPos() : this.setPos(top, left);
+	};
+	NoteViewTextBoxModel.prototype.getPos = function() {
+		//return by value(not by reference)
+		return {
+			top: this.__position.top,
+			left: this.__position.left
+		};
+	};
+	NoteViewTextBoxModel.prototype.setPos = function(top, left) {
+		this.__position = {
+			top: top,
+			left: left
+		};
+		this.fire("updatePosition", this, this.getPos());
+	};
+
+	NoteViewTextBoxModel.prototype.parseToNativeObject = function() {
+		return {
+			position: this.getPos(),
+			value: this.getVal()
+		};
+	};
+
+	return NoteViewTextBoxModel;
+}());
 ;var NoteViewTextBox = (function() {
 
+	//static variables
 	var $textarea = $("<textarea class='NoteViewTextBox-textarea'></textarea>")
-	$textarea.appendTo(document.body);
-	var textarea = $textarea[0];
+		.appendTo(document.body),
 
-	var $cursorBufferBase = $("<div class='NoteViewTextBox-base'></div>"),
-		$cursorBuffer = $("<div class='NoteViewTextBox-markdown'></div>");
+		textarea = $textarea[0],
 
-	$cursorBufferBase.appendChild($cursorBuffer);
-	$cursorBufferBase.appendTo(document.body);
+		$cursorBufferBase = $("<div class='NoteViewTextBox-base'></div>")
+		.appendTo(document.body),
 
-	var lastSelectionStart = -1;
+		$cursorBuffer = $("<div class='NoteViewTextBox-markdown'></div>")
+		.appendTo($cursorBufferBase),
 
-	var $cursor = $("<div class='NoteViewTextBox-Cursor'></div>");
+		$cursor = $("<div class='NoteViewTextBox-Cursor'></div>"),
+
+		lastSelectionStart = -1;
+
 
 	function NoteViewTextBox() {
 		this.super();
@@ -1058,18 +1146,23 @@ var TabPanelView = (function() {
 			startMY: null,
 		};
 
-		this.value = "";
+		this.model = new NoteViewTextBoxModel();
+		this.model.bind("update", this.update, this);
 		this.__updateTimerID = null;
 	}
 	extendClass(NoteViewTextBox, View);
 
+
+	/*-------------------------------------------------
+	 * Event Handlers
+	 */
 	NoteViewTextBox.prototype.__click = function(ev) {
 		this.setFocus();
 		ev.stopPropagation();
 	};
 
 	NoteViewTextBox.prototype.__input = function(ev) {
-		this.update();
+		this.model.val(textarea.value);
 	};
 
 	NoteViewTextBox.prototype.__blurTextArea = function(ev) {
@@ -1089,7 +1182,7 @@ var TabPanelView = (function() {
 			textarea.selectionEnd =
 			selectionStart + 1;
 
-		this.update();
+		this.model.val(textarea.value);
 		ev.preventDefault();
 	};
 
@@ -1111,7 +1204,7 @@ var TabPanelView = (function() {
 				textarea.selectionEnd =
 				selectionStart - 1;
 
-			this.update();
+			this.model.val(textarea.value);
 		}
 		ev.preventDefault();
 	};
@@ -1132,12 +1225,9 @@ var TabPanelView = (function() {
 			textarea.selectionEnd =
 			selectionStart + 1 + indentLevel;
 
-		this.update();
+		this.model.val(textarea.value);
 		ev.preventDefault();
 	};
-
-
-
 	NoteViewTextBox.prototype.__mousedown = function(ev) {
 		this.__$base.addClass("-drag");
 
@@ -1155,6 +1245,11 @@ var TabPanelView = (function() {
 
 		document.body.unbind("mousemove", this.__mousemoveForMove, this, true);
 		document.body.unbind("mouseup", this.__mouseupForMove, this, true);
+
+		this.model.pos(
+			parseInt(this.__$base.css("top")),
+			parseInt(this.__$base.css("left"))
+		)
 	};
 
 	NoteViewTextBox.prototype.__mousemoveForMove = function(ev) {
@@ -1164,15 +1259,21 @@ var TabPanelView = (function() {
 		if (left < 0) left = 0;
 		if (top < 0) top = 0;
 
-
 		this.__$base.css({
 			left: left,
 			top: top
 		});
 	};
 
+
+	/*-------------------------------------------------
+	 * methods
+	 */
 	NoteViewTextBox.prototype.remove = function() {
+		this.fire("beforeRemove", this);
+
 		this.__$base.remove();
+
 		this.fire("remove", this);
 	};
 
@@ -1180,7 +1281,7 @@ var TabPanelView = (function() {
 		this.__$base.addClass("-edit");
 		$textarea.bind("input", this.__input, this, true);
 		$textarea.bind("blur", this.__blurTextArea, this, true);
-		$textarea.val(this.value);
+		$textarea.val(this.model.val());
 		$textarea.focus();
 		this.__kr.listen($textarea);
 
@@ -1190,8 +1291,6 @@ var TabPanelView = (function() {
 				that.fire("__cursorUpdate");
 			}, 50);
 		}
-
-		this.update();
 
 		$cursorBufferBase.css({
 			top: 0,
@@ -1207,17 +1306,17 @@ var TabPanelView = (function() {
 
 		clearInterval(this.__updateTimerID);
 		this.__updateTimerID = null;
-		this.value = $textarea.val();
+		this.model.val(textarea.value);
 
-		if (this.value === "") this.remove();
-
-		this.update();
+		if (this.model.val() === "") this.remove();
 	};
 
 	NoteViewTextBox.prototype.update = function() {
-		var html = Markdown.parse(textarea.value);
+		var html = Markdown.parse(this.model.val());
 
 		this.__$markdown.html(html);
+
+		this.fire("update", this);
 	};
 
 	NoteViewTextBox.prototype.updateCursor = function() {
@@ -1233,13 +1332,19 @@ var NoteView = (function() {
 		this.super();
 		this.__$base = $("<div class='NoteView-base'></div>");
 		this.__$base.bind("click", this.__click, this, true);
+
+		this.model = new NoteViewPageModel();
 	}
 	extendClass(NoteView, View);
 
 	NoteView.prototype.__click = function(ev) {
-		var textBox = this.__addNoteViewTextBox(),
+		var textBox = this.__addTextBox(),
 			x = Math.round(ev.offsetX / GRID_SIZE) * GRID_SIZE - 30,
 			y = Math.round(ev.offsetY / GRID_SIZE) * GRID_SIZE - 50;
+
+		this.model.appendTextBoxModel(textBox.model);
+		textBox.bind("beforeRemove", this.__beforeRemoveTextBox, this);
+		textBox.bind("remove", this.__removeTextBox, this)
 
 		if (x < 0) x = 0;
 		if (y < 0) y = 0;
@@ -1248,10 +1353,18 @@ var NoteView = (function() {
 		textBox.setFocus();
 	};
 
-	NoteView.prototype.__addNoteViewTextBox = function() {
+	NoteView.prototype.__addTextBox = function() {
 		var textBox = new NoteViewTextBox();
 		textBox.appendTo(this);
 		return textBox;
+	};
+
+	NoteView.prototype.__beforeRemoveTextBox = function(textBox) {
+		this.model.removeTextBoxModel(textBox.model);
+	};
+
+	NoteView.prototype.__removeTextBox = function(textBox) {
+		this.model.save();
 	};
 
 	return NoteView;
