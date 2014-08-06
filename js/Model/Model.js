@@ -81,6 +81,8 @@ var Model = (function() {
 	Model.convertFromNativeObject = function(data) {
 		var res;
 
+		if (!data) return undefined;
+
 		switch (data.type) {
 			case "native":
 				res = data.value;

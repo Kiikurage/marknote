@@ -1,25 +1,14 @@
 //#include("/Model/Model.js");
 
-var NoteViewTextBoxModel = (function() {
-	function NoteViewTextBoxModel() {
-		this._position = {
-			top: 0,
-			left: 0,
-		};
+var NoteViewTextboxModel = (function() {
+	function NoteViewTextboxModel() {
 		this._text = "";
 	}
-	extendClass(NoteViewTextBoxModel, Model);
+	extendClass(NoteViewTextboxModel, Model);
 
-	NoteViewTextBoxModel.__record("position");
-	NoteViewTextBoxModel.__record("text");
+	NoteViewTextboxModel.__record("x");
+	NoteViewTextboxModel.__record("y");
+	NoteViewTextboxModel.__record("text");
 
-	NoteViewTextBoxModel.prototype.setPos = function(top, left) {
-		this.__position = {
-			top: top,
-			left: left
-		};
-		this.fire("updatePosition", this, this.getPos());
-	};
-
-	return NoteViewTextBoxModel;
+	return NoteViewTextboxModel;
 }());

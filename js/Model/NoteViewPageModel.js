@@ -3,20 +3,33 @@
 var NoteViewPageModel = (function() {
 
 	function NoteViewPageModel() {
-		this._textBoxes = [];
+		this._textboxes = [];
 	}
 	extendClass(NoteViewPageModel, Model);
 
-	NoteViewPageModel.__record("textBoxes");
+	NoteViewPageModel.__record("textboxes");
 
-	NoteViewPageModel.prototype.appendTextBox = function(model) {
-		this._textBoxes.push(model);
+	NoteViewPageModel.prototype.appendTextbox = function(model) {
+		if (this.textboxes.indexOf(model) !== -1) return;
+
+		model.bind("update", this.__updateTextbox, this)
+		this.textboxes.push(model);
+
+		this.fire("update");
 	};
 
-	NoteViewPageModel.prototype.removeTextBox = function(model) {
-		var index = this._textBoxes.indexOf(model);
+	NoteViewPageModel.prototype.removeTextbox = function(model) {
+		var index = this.textboxes.indexOf(model);
+		if (index === -1) return;
 
-		this._textBoxes.splice(index, 1);
+		model.unbind("update", this.__updateTextbox, this)
+		this.textboxes.splice(index, 1);
+
+		this.fire("update");
+	};
+
+	NoteViewPageModel.prototype.__updateTextbox = function() {
+		this.fire("update");
 	};
 
 	return NoteViewPageModel;

@@ -83,7 +83,7 @@ var IPubSub = (function(exports) {
 				nativeCallback = nativeCallbackList[type] = null;
 			}
 		}
-	}
+	};
 
 	exports.fire = function(publisher, type, argArr) {
 		var publisherID = getPublihserId(publisher);
@@ -108,7 +108,7 @@ var IPubSub = (function(exports) {
 		}
 
 		callbackList[type] = firedArr;
-	}
+	};
 
 	exports.implement = function(target) {
 		target.bind = function(type, fn, context, isNative) {
@@ -130,7 +130,7 @@ var IPubSub = (function(exports) {
 			IPubSub.fire(this, type, args);
 			return this;
 		};
-	}
+	};
 
 	return exports;
 }({}));

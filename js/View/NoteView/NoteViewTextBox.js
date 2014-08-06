@@ -1,34 +1,28 @@
 //#include("/View/View.js");
 //#include("/Service/Markdown.js");
 //#include("/Service/KeyRecognizer.js");
-//#include("/Model/NoteViewTextBoxModel.js");
+//#include("/Model/NoteViewTextboxModel.js");
 
-var NoteViewTextBox = (function() {
+var NoteViewTextbox = (function() {
 
 	//static variables
-	var $textarea = $("<textarea class='NoteViewTextBox-textarea'></textarea>")
+	var $textarea = $("<textarea class='NoteViewTextbox-textarea'></textarea>")
 		.appendTo(document.body),
 
 		textarea = $textarea[0],
 
-		$cursorBufferBase = $("<div class='NoteViewTextBox-base'></div>")
-		.appendTo(document.body),
-
-		$cursorBuffer = $("<div class='NoteViewTextBox-markdown'></div>")
-		.appendTo($cursorBufferBase),
-
-		$cursor = $("<div class='NoteViewTextBox-Cursor'></div>"),
+		$cursor = $("<div class='NoteViewTextbox-Cursor'></div>"),
 
 		lastSelectionStart = -1;
 
 
-	function NoteViewTextBox() {
+	function NoteViewTextbox(model) {
 		this.super();
-		this.__$base = $("<div class='NoteViewTextBox-base'></div>");
+		this.__$base = $("<div class='NoteViewTextbox-base'></div>");
 		this.__$base.bind("click", this.__click, this, true);
 		this.__$base.bind("mousedown", this.__mousedown, this, true);
 
-		this.__$markdown = $("<div class='NoteViewTextBox-markdown'></div>")
+		this.__$markdown = $("<div class='NoteViewTextbox-markdown'></div>")
 		this.__$markdown.appendTo(this.__$base);
 
 		this.bind("__cursorUpdate", this.updateCursor, this);
@@ -46,31 +40,34 @@ var NoteViewTextBox = (function() {
 			startMX: null,
 			startMY: null,
 		};
+		this.__isFocus = false;
 
-		this.model = new NoteViewTextBoxModel();
+		this.model = model || new NoteViewTextboxModel();
 		this.model.bind("update", this.update, this);
 		this.__updateTimerID = null;
+
+		this.update();
 	}
-	extendClass(NoteViewTextBox, View);
+	extendClass(NoteViewTextbox, View);
 
 
 	/*-------------------------------------------------
 	 * Event Handlers
 	 */
-	NoteViewTextBox.prototype.__click = function(ev) {
+	NoteViewTextbox.prototype.__click = function(ev) {
 		this.setFocus();
 		ev.stopPropagation();
 	};
 
-	NoteViewTextBox.prototype.__input = function(ev) {
+	NoteViewTextbox.prototype.__input = function(ev) {
 		this.model.text = textarea.value;
 	};
 
-	NoteViewTextBox.prototype.__blurTextArea = function(ev) {
+	NoteViewTextbox.prototype.__blurTextArea = function(ev) {
 		this.lostFocus();
 	};
 
-	NoteViewTextBox.prototype.__inputTab = function(ev) {
+	NoteViewTextbox.prototype.__inputTab = function(ev) {
 		var val = textarea.value,
 			selectionStart = textarea.selectionStart;
 
@@ -87,7 +84,7 @@ var NoteViewTextBox = (function() {
 		ev.preventDefault();
 	};
 
-	NoteViewTextBox.prototype.__inputDeleteTab = function(ev) {
+	NoteViewTextbox.prototype.__inputDeleteTab = function(ev) {
 		var val = textarea.value,
 			selectionStart = textarea.selectionStart;
 
@@ -110,7 +107,7 @@ var NoteViewTextBox = (function() {
 		ev.preventDefault();
 	};
 
-	NoteViewTextBox.prototype.__inputEnter = function(ev) {
+	NoteViewTextbox.prototype.__inputEnter = function(ev) {
 		var val = textarea.value,
 			selectionStart = textarea.selectionStart;
 
@@ -129,7 +126,7 @@ var NoteViewTextBox = (function() {
 		this.model.text = textarea.value;
 		ev.preventDefault();
 	};
-	NoteViewTextBox.prototype.__mousedown = function(ev) {
+	NoteViewTextbox.prototype.__mousedown = function(ev) {
 		this.__$base.addClass("-drag");
 
 		document.body.bind("mousemove", this.__mousemoveForMove, this, true);
@@ -141,36 +138,29 @@ var NoteViewTextBox = (function() {
 		this.__startY = parseInt(this.__$base.css("top"));
 	};
 
-	NoteViewTextBox.prototype.__mouseupForMove = function(ev) {
+	NoteViewTextbox.prototype.__mouseupForMove = function(ev) {
 		this.__$base.removeClass("-drag");
 
 		document.body.unbind("mousemove", this.__mousemoveForMove, this, true);
 		document.body.unbind("mouseup", this.__mouseupForMove, this, true);
-
-		this.model.pos(
-			parseInt(this.__$base.css("top")),
-			parseInt(this.__$base.css("left"))
-		)
 	};
 
-	NoteViewTextBox.prototype.__mousemoveForMove = function(ev) {
-		var left = Math.round((this.__startX + (ev.x - this.__startMX)) / GRID_SIZE) * GRID_SIZE,
-			top = Math.round((this.__startY + (ev.y - this.__startMY)) / GRID_SIZE) * GRID_SIZE;
+	NoteViewTextbox.prototype.__mousemoveForMove = function(ev) {
+		var x = Math.round((this.__startX + (ev.x - this.__startMX)) / GRID_SIZE) * GRID_SIZE,
+			y = Math.round((this.__startY + (ev.y - this.__startMY)) / GRID_SIZE) * GRID_SIZE;
 
-		if (left < 0) left = 0;
-		if (top < 0) top = 0;
+		if (x < 0) x = 0;
+		if (y < 0) y = 0;
 
-		this.__$base.css({
-			left: left,
-			top: top
-		});
+		this.model.x = x;
+		this.model.y = y;
 	};
 
 
 	/*-------------------------------------------------
 	 * methods
 	 */
-	NoteViewTextBox.prototype.remove = function() {
+	NoteViewTextbox.prototype.remove = function() {
 		this.fire("beforeRemove", this);
 
 		this.__$base.remove();
@@ -178,11 +168,14 @@ var NoteViewTextBox = (function() {
 		this.fire("remove", this);
 	};
 
-	NoteViewTextBox.prototype.setFocus = function() {
+	NoteViewTextbox.prototype.setFocus = function() {
+		this.__isFocus = true;
+
 		this.__$base.addClass("-edit");
 		$textarea.bind("input", this.__input, this, true);
 		$textarea.bind("blur", this.__blurTextArea, this, true);
-		$textarea.val(this.model.text);
+
+		textarea.value = this.model.text;
 		$textarea.focus();
 		this.__kr.listen($textarea);
 
@@ -193,36 +186,38 @@ var NoteViewTextBox = (function() {
 			}, 50);
 		}
 
-		$cursorBufferBase.css({
-			top: 0,
-			left: 0
-		});
+		this.update();
 	};
 
-	NoteViewTextBox.prototype.lostFocus = function() {
+	NoteViewTextbox.prototype.lostFocus = function() {
+		this.__isFocus = false;
+
 		this.__$base.removeClass("-edit");
 		$textarea.unbind("input", this.__input, this, true);
 		$textarea.unbind("blur", this.__blurTextArea, this, true);
+
+		this.model.text = textarea.value;
+		if (this.model.text === "") this.remove();
 		this.__kr.unlisten($textarea);
 
 		clearInterval(this.__updateTimerID);
 		this.__updateTimerID = null;
-		this.model.text = textarea.value;
 
-		if (this.model.val() === "") this.remove();
+		this.update();
 	};
 
-	NoteViewTextBox.prototype.update = function() {
-		var html = Markdown.parse(this.model.text);
+	NoteViewTextbox.prototype.update = function() {
+		var model = this.model,
+			text = model.text;
+
+		var html = Markdown.parse(text);
 
 		this.__$markdown.html(html);
-
+		this.setPosition(model.x, model.y);
 		this.fire("update", this);
 	};
 
-	NoteViewTextBox.prototype.updateCursor = function() {
+	NoteViewTextbox.prototype.updateCursor = function() {};
 
-	};
-
-	return NoteViewTextBox;
+	return NoteViewTextbox;
 }());
