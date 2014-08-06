@@ -59,4 +59,31 @@ function init() {
 	noteView = new NoteView();
 	noteView.setID("noteview");
 	noteView.appendTo($("#maincontainer"));
+
+	kr = new KeyRecognizer();
+	kr.listen(document.body);
+	kr.register({
+		"cmd+S": function(ev) {
+			console.log("セーブ");
+			noteView.model.save("test");
+			ev.preventDefault();
+		},
+		"cmd+O": function(ev) {
+			console.log("開く");
+			var savedata = Model.load("test");
+			if (!savedata) {
+				console.log("セーブデータが存在しない");
+				return;
+			}
+			noteView.bindModel(savedata);
+			ev.preventDefault();
+		},
+		"ctrl+cmd+N": function(ev) {
+			console.log("新規作成");
+			noteView.bindModel(new NoteViewPageModel());
+			noteView.model.save("test");
+			ev.preventDefault();
+		},
+	})
+
 }

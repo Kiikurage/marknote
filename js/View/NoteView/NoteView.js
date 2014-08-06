@@ -9,20 +9,29 @@ var NoteView = (function() {
 		this.super();
 		this.__$base = $("<div class='NoteView-base'></div>");
 		this.__$base.bind("click", this.__click, this, true);
-
-		this.model = model || new NoteViewPageModel();
-		this.model.bind("update", this.update, this);
-
-		this.update();
 	}
 	extendClass(NoteView, View);
+
+	NoteView.prototype.bindModel = function(model) {
+		this.__$base.children().remove();
+
+		this.model = model;
+		model.view = this;
+
+		this.model.bind("update", this.update, this);
+
+		var models = model.textboxes;
+		for (var i = 0, max = models.length; i < max; i++) {
+			this.__addTextbox(models[i]);
+		}
+
+		this.update();
+	};
 
 	NoteView.prototype.__click = function(ev) {
 		var textbox = this.__addTextbox(),
 			x = Math.round(ev.offsetX / GRID_SIZE) * GRID_SIZE - 30,
 			y = Math.round(ev.offsetY / GRID_SIZE) * GRID_SIZE - 50;
-
-		textbox.bind("beforeRemove", this.__beforeRemoveTextbox, this);
 
 		if (x < 0) x = 0;
 		if (y < 0) y = 0;
@@ -33,19 +42,24 @@ var NoteView = (function() {
 	};
 
 	NoteView.prototype.__addTextbox = function(model) {
-		var textbox = new NoteViewTextbox(model);
+		var model = model || new NoteViewTextboxModel(),
+			textbox = new NoteViewTextbox();
+
+		textbox.bindModel(model);
 		textbox.appendTo(this);
-		this.model.appendTextbox(textbox.model);
+		this.model.appendTextbox(model);
+
+		textbox.bind("remove", this.__removeTextbox, this);
 
 		return textbox;
 	};
 
-	NoteView.prototype.__beforeRemoveTextbox = function(textbox) {
+	NoteView.prototype.__removeTextbox = function(textbox) {
 		this.model.removeTextbox(textbox.model);
 	};
 
 	NoteView.prototype.update = function() {
-		this.model.save("test");
+		this.fire("update");
 	};
 
 	return NoteView;

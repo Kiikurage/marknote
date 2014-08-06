@@ -16,7 +16,7 @@ var NoteViewTextbox = (function() {
 		lastSelectionStart = -1;
 
 
-	function NoteViewTextbox(model) {
+	function NoteViewTextbox() {
 		this.super();
 		this.__$base = $("<div class='NoteViewTextbox-base'></div>");
 		this.__$base.bind("click", this.__click, this, true);
@@ -38,14 +38,16 @@ var NoteViewTextbox = (function() {
 			startMX: null,
 			startMY: null,
 		};
-
-		this.model = model || new NoteViewTextboxModel();
-		this.model.bind("update", this.update, this);
-
-		this.update();
 	}
 	extendClass(NoteViewTextbox, View);
 
+	NoteViewTextbox.prototype.bindModel = function(model) {
+		this.model = model;
+		model.view = this;
+		this.model.bind("update", this.update, this);
+
+		this.update();
+	};
 
 	/*-------------------------------------------------
 	 * Event Handlers
@@ -158,8 +160,6 @@ var NoteViewTextbox = (function() {
 	 * remove
 	 */
 	NoteViewTextbox.prototype.remove = function() {
-		this.fire("beforeRemove", this);
-
 		this.__$base.remove();
 
 		this.fire("remove", this);
