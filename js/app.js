@@ -1,7 +1,7 @@
 /*
 test data
 
-{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array","value":[{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":0},"_text":{"type":"native","value":"#Marknote\nver. 0.1.0\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":80},"_text":{"type":"native","value":"\t#実装済みの機能\n\t-テキストエディット(カーソルが表示されない)\n\t-テキストボックスの再配置\n\t-セーブ/ロード"},"_focus":{"type":"native","value":false}}}]}}}
+{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array","value":[{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":0},"_text":{"type":"native","value":"#Marknote\\nver. 0.1.0\\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":80},"_text":{"type":"native","value":"\\t#実装済みの機能\\n\\t-テキストエディット(カーソルが表示されない)\\n\\t-テキストボックスの再配置\\n\\t-セーブ/ロード"},"_focus":{"type":"native","value":false}}}]}}}
 
 */
 
@@ -62,6 +62,9 @@ var app = (function() {
 		noteView.setID("noteview");
 		noteView.appendTo($("#maincontainer"));
 		app.noteView = noteView;
+
+		//for test
+		noteView.bindModel(Model.convertFromNativeObject(JSON.parse('{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array","value":[{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":0},"_text":{"type":"native","value":"#Marknote\\nver. 0.1.0\\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":80},"_text":{"type":"native","value":"\\t#実装済みの機能\\n\\t-テキストエディット(カーソルが表示されない)\\n\\t-テキストボックスの再配置\\n\\t-セーブ/ロード"},"_focus":{"type":"native","value":false}}}]}}}')));
 
 		var kr = new KeyRecognizer();
 		kr.listen(document.body);
