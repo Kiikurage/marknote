@@ -33,8 +33,8 @@ var KeyRecognizer = (function() {
 	KeyRecognizer.prototype.register = function(pattern, callback, context) {
 		if (typeof pattern === "object") {
 			var patternList = arguments[0],
-				callback = null,
-				context = arguments[1];
+				context = arguments[1],
+				callback = null;
 
 			for (var pattern in patternList) {
 				if (!patternList.hasOwnProperty(pattern)) continue
