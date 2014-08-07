@@ -1,6 +1,6 @@
 (function() {
 	var cssValueNormalize = (function() {
-		var regCssNoUnit = /^(?:opacity|z-index)$/;
+		var regCssNoUnit = /^(?:opacity|zIndex)$/;
 
 		return function cssValueNormalize(key, value) {
 			if (typeof value === "number" &&
