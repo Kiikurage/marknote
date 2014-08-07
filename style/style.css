@@ -250,6 +250,25 @@ h6.Markdown-header {
   height: auto;
   background: #000;
 }
+.AlertView-base {
+  display: block;
+  position: fixed;
+  right: 0px;
+  bottom: -60px;
+  padding: 10px 20px;
+  background: #2baf2b;
+  color: #ffffff;
+  z-index: 65535;
+  transition: 0.3s ease;
+  opacity: 0;
+}
+.AlertView-base.-show {
+  bottom: 0px;
+  opacity: 1;
+}
+.AlertView-base.-error {
+  background: #e84e40;
+}
 html,
 body {
   position: fixed;

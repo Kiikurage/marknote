@@ -1,0 +1,26 @@
+//#compileTo="../style.less"#
+.AlertView-base {
+	display: block;
+	position: fixed;
+
+	right: 0px;
+	bottom: -60px;
+
+	padding: 10px 20px;
+	
+	background: @Green400;
+
+	color: @Grey0;
+
+	z-index: 65535;
+	transition: 0.3s ease;
+	opacity: 0;
+
+	&.-show {
+		bottom: 0px;
+		opacity: 1;
+	}
+	&.-error {
+		background: @Red400;
+	}
+}

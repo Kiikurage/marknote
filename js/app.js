@@ -10,6 +10,7 @@ test data
 //#include("/View/SideMenuView.js");
 //#include("/View/ButtonView.js");
 //#include("/View/NoteView.js");
+//#include("/View/AlertView.js");
 
 var app = (function() {
 
@@ -72,12 +73,16 @@ var app = (function() {
 			"ctrl+cmd+T": app.toggleSideMenu,
 		}, app);
 		app.kr = kr;
+
+		var alertView = new AlertView();
+		alertView.appendTo($("body"));
+		app.alertView = alertView;
 	};
 
 	app.saveFile = function(ev) {
 		console.log("セーブ");
 		app.noteView.model.save("test");
-
+		app.alertView.show("保存しました");
 		if (ev) ev.preventDefault();
 	};
 
@@ -85,7 +90,7 @@ var app = (function() {
 		console.log("開く");
 		var savedata = Model.load("test");
 		if (!savedata) {
-			console.log("セーブデータが存在しません");
+			app.alertView.showError("セーブデータが存在しません");
 			return;
 		}
 		app.noteView.bindModel(savedata);
