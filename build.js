@@ -964,69 +964,6 @@ var TabPanelView = (function() {
 		parse: parse
 	};
 }());
-;var KeyRecognizer = (function() {
-
-	function KeyRecognizer() {
-
-	}
-	IPubSub.implement(KeyRecognizer.prototype);
-
-	KeyRecognizer.prototype.listen = function(node) {
-		node.bind("keydown", this.__keyDownListener, this, true);
-	};
-
-	KeyRecognizer.prototype.unlisten = function(node) {
-		node.unbind("keydown", this.__keyDownListener, this, true);
-	};
-
-	KeyRecognizer.prototype.__keyDownListener = function(ev) {
-		var keys = [];
-		keys.push(ev.keyCode);
-
-		if (ev.keyCode !== KEYCODE.SHIFT && ev.shiftKey) keys.push(KEYCODE.SHIFT);
-		if (ev.keyCode !== KEYCODE.ALT && ev.altKey) keys.push(KEYCODE.ALT);
-		if (ev.keyCode !== KEYCODE.CTRL && ev.ctrlKey) keys.push(KEYCODE.CTRL);
-		if (ev.keyCode !== KEYCODE.CMD && ev.metaKey) keys.push(KEYCODE.CMD);
-
-		keys.sort(function(a, b) {
-			return a - b
-		});
-		this.fire(keys.join("+"), ev);
-	};
-
-	KeyRecognizer.prototype.register = function(pattern, callback, context) {
-		if (typeof pattern === "object") {
-			var patternList = arguments[0],
-				context = arguments[1],
-				callback = null;
-
-			for (var pattern in patternList) {
-				if (!patternList.hasOwnProperty(pattern)) continue
-				this.register(pattern, patternList[pattern], context);
-			}
-			return
-		}
-
-		var tokens = pattern.split("+"),
-			keys = [],
-			token;
-
-		while (token = tokens.pop()) {
-			token = token.toUpperCase();
-			if (token in KEYCODE) keys.push(KEYCODE[token]);
-		}
-
-		keys.sort(function(a, b) {
-			return a - b
-		});
-
-		var pattern = keys.join("+");
-
-		this.bind(pattern, callback, context);
-	};
-
-	return KeyRecognizer;
-}());
 ;var Model = (function() {
 	function Model() {
 
@@ -1179,6 +1116,7 @@ var ModelTest = (function() {
 ;var NoteViewTextboxModel = (function() {
 	function NoteViewTextboxModel() {
 		this._text = "";
+		this.__receiver = null;
 	}
 	extendClass(NoteViewTextboxModel, Model);
 
@@ -1187,36 +1125,26 @@ var ModelTest = (function() {
 	NoteViewTextboxModel.__record("text");
 	NoteViewTextboxModel.__record("focus");
 
+	NoteViewTextboxModel.prototype.__receiverInput = function() {
+		this.text = this.__receiver.getValue();
+	};
+
 	return NoteViewTextboxModel;
 }());
 ;var NoteViewTextbox = (function() {
 
-	//static variables
-	var $textarea = $("<textarea class='NoteViewTextbox-textarea'></textarea>")
-		.appendTo(document.body),
-
-		textarea = $textarea[0],
-
-		$cursor = $("<div class='NoteViewTextbox-Cursor'></div>"),
-
-		lastSelectionStart = -1;
-
-
-	function NoteViewTextbox() {
+	function NoteViewTextbox(receiver) {
 		this.super();
+
 		this.__$base = $("<div class='NoteViewTextbox-base'></div>");
 		this.__$base.bind("click", this.__click, this, true);
 		this.__$base.bind("mousedown", this.__mousedown, this, true);
 
-		this.__$markdown = $("<div class='NoteViewTextbox-markdown'></div>")
-		this.__$markdown.appendTo(this.__$base);
+		this.__$textLayer = $("<div class='NoteViewTextbox-textLayer'></div>")
+		this.__$textLayer.appendTo(this.__$base);
 
-		this.__kr = new KeyRecognizer();
-		this.__kr.register({
-			"shift+tab": this.__inputDeleteTab,
-			"tab": this.__inputTab,
-			"enter": this.__inputEnter
-		}, this);
+		this.__$cursorLayer = $("<div class='NoteViewTextbox-cursorLayer'></div>")
+		this.__$cursorLayer.appendTo(this.__$base);
 
 		this.__dragging = {
 			startX: null,
@@ -1224,12 +1152,16 @@ var ModelTest = (function() {
 			startMX: null,
 			startMY: null,
 		};
+
+		this.__receiver = receiver;
 	}
 	extendClass(NoteViewTextbox, View);
 
 	NoteViewTextbox.prototype.bindModel = function(model) {
 		this.model = model;
 		model.view = this;
+		model.__receiver = this.__receiver;
+
 		this.model.bind("update", this.update, this);
 
 		this.update();
@@ -1241,74 +1173,6 @@ var ModelTest = (function() {
 	NoteViewTextbox.prototype.__click = function(ev) {
 		this.setFocus();
 		ev.stopPropagation();
-	};
-
-	NoteViewTextbox.prototype.__input = function(ev) {
-		this.model.text = textarea.value;
-	};
-
-	NoteViewTextbox.prototype.__blurTextArea = function(ev) {
-		this.lostFocus();
-	};
-
-	NoteViewTextbox.prototype.__inputTab = function(ev) {
-		var val = textarea.value,
-			selectionStart = textarea.selectionStart;
-
-		textarea.value =
-			val.slice(0, textarea.selectionStart) +
-			"\t" +
-			val.slice(textarea.selectionEnd)
-
-		textarea.selectionStart =
-			textarea.selectionEnd =
-			selectionStart + 1;
-
-		this.model.text = textarea.value;
-		ev.preventDefault();
-	};
-
-	NoteViewTextbox.prototype.__inputDeleteTab = function(ev) {
-		var val = textarea.value,
-			selectionStart = textarea.selectionStart;
-
-		var lastLine = val.slice(0, textarea.selectionStart).split("\n").pop(),
-			len = lastLine.length,
-			indentLevel = lastLine.match(/^\t*/)[0].length;
-
-		if (indentLevel > 0) {
-			textarea.value =
-				val.slice(0, textarea.selectionStart - len) +
-				lastLine.slice(1) +
-				val.slice(textarea.selectionEnd)
-
-			textarea.selectionStart =
-				textarea.selectionEnd =
-				selectionStart - 1;
-
-			this.model.text = textarea.value;
-		}
-		ev.preventDefault();
-	};
-
-	NoteViewTextbox.prototype.__inputEnter = function(ev) {
-		var val = textarea.value,
-			selectionStart = textarea.selectionStart;
-
-		var lastLine = val.slice(0, textarea.selectionStart).split("\n").pop(),
-			indentLevel = lastLine.match(/^\t*/)[0].length;
-
-		textarea.value =
-			val.slice(0, textarea.selectionStart) +
-			"\n" + Array(indentLevel + 1).join("\t") +
-			val.slice(textarea.selectionEnd)
-
-		textarea.selectionStart =
-			textarea.selectionEnd =
-			selectionStart + 1 + indentLevel;
-
-		this.model.text = textarea.value;
-		ev.preventDefault();
 	};
 
 	NoteViewTextbox.prototype.__mousedown = function(ev) {
@@ -1341,7 +1205,6 @@ var ModelTest = (function() {
 		this.model.y = y;
 	};
 
-
 	/*-------------------------------------------------
 	 * remove
 	 */
@@ -1357,23 +1220,22 @@ var ModelTest = (function() {
 	NoteViewTextbox.prototype.setFocus = function() {
 		this.model.focus = true;
 
-		$textarea.bind("input", this.__input, this, true);
-		$textarea.bind("blur", this.__blurTextArea, this, true);
+		var receiver = this.__receiver;
+		receiver.bind("blur", this.lostFocus, this);
+		receiver.bind("input", this.model.__receiverInput, this.model);
+		receiver.setValue(this.model.text);
 
-		textarea.value = this.model.text;
-		$textarea.focus();
-
-		this.__kr.listen($textarea);
+		receiver.setFocus();
 	};
 
 	NoteViewTextbox.prototype.lostFocus = function() {
 		this.model.focus = false;
 
-		$textarea.unbind("input", this.__input, this, true);
-		$textarea.unbind("blur", this.__blurTextArea, this, true);
+		var receiver = this.__receiver;
+		receiver.unbind("blur", this.lostFocus, this);
+		receiver.unbind("input", this.model.__receiverInput, this.model);
 
 		if (this.model.text.replace(/\s*/g, "") === "") this.remove();
-		this.__kr.unlisten($textarea);
 	};
 
 	/*-------------------------------------------------
@@ -1385,13 +1247,216 @@ var ModelTest = (function() {
 			html = Markdown.parse(text);
 
 		this.__$base.toggleClass("-edit", model.focus);
-		this.__$markdown.html(html);
+		this.__$textLayer.html(html);
 		this.setPosition(model.x, model.y);
 
 		this.fire("update", this);
+		console.log(this.__receiver.selectionStart, this.__receiver.selectionEnd)
 	};
 
 	return NoteViewTextbox;
+}());
+;var KeyRecognizer = (function() {
+
+	function KeyRecognizer() {
+
+	}
+	IPubSub.implement(KeyRecognizer.prototype);
+
+	KeyRecognizer.prototype.listen = function(node) {
+		node.bind("keydown", this.__keyDownListener, this, true);
+	};
+
+	KeyRecognizer.prototype.unlisten = function(node) {
+		node.unbind("keydown", this.__keyDownListener, this, true);
+	};
+
+	KeyRecognizer.prototype.__keyDownListener = function(ev) {
+		var keys = [];
+		keys.push(ev.keyCode);
+
+		if (ev.keyCode !== KEYCODE.SHIFT && ev.shiftKey) keys.push(KEYCODE.SHIFT);
+		if (ev.keyCode !== KEYCODE.ALT && ev.altKey) keys.push(KEYCODE.ALT);
+		if (ev.keyCode !== KEYCODE.CTRL && ev.ctrlKey) keys.push(KEYCODE.CTRL);
+		if (ev.keyCode !== KEYCODE.CMD && ev.metaKey) keys.push(KEYCODE.CMD);
+
+		keys.sort(function(a, b) {
+			return a - b
+		});
+		this.fire(keys.join("+"), ev);
+	};
+
+	KeyRecognizer.prototype.register = function(pattern, callback, context) {
+		if (typeof pattern === "object") {
+			var patternList = arguments[0],
+				context = arguments[1],
+				callback = null;
+
+			for (var pattern in patternList) {
+				if (!patternList.hasOwnProperty(pattern)) continue
+				this.register(pattern, patternList[pattern], context);
+			}
+			return
+		}
+
+		var tokens = pattern.split("+"),
+			keys = [],
+			token;
+
+		while (token = tokens.pop()) {
+			token = token.toUpperCase();
+			if (token in KEYCODE) keys.push(KEYCODE[token]);
+		}
+
+		keys.sort(function(a, b) {
+			return a - b
+		});
+
+		var pattern = keys.join("+");
+
+		this.bind(pattern, callback, context);
+	};
+
+	return KeyRecognizer;
+}());
+;var NoteViewInputReceiver = (function() {
+
+	function NoteViewInputReceiver() {
+		this.__$base = $("<textarea class='NoteViewInputReceiver-base'></textarea>");
+		this.__$base.appendTo(document.body);
+		this.__$base.bind("input", this.__input, this, true);
+		this.__$base.bind("blur", this.__blurTextArea, this, true);
+
+		this.__kr = new KeyRecognizer();
+		this.__kr.register({
+			"shift+tab": this.__inputDeleteTab,
+			"tab": this.__inputTab,
+			"enter": this.__inputEnter,
+			"up": this.__inputSelectionMove,
+			"down": this.__inputSelectionMove,
+			"left": this.__inputSelectionMove,
+			"right": this.__inputSelectionMove,
+			"shift+up": this.__inputSelectionMove,
+			"shift+down": this.__inputSelectionMove,
+			"shift+left": this.__inputSelectionMove,
+			"shift+right": this.__inputSelectionMove,
+			"cmd+up": this.__inputSelectionMove,
+			"cmd+down": this.__inputSelectionMove,
+			"cmd+left": this.__inputSelectionMove,
+			"cmd+right": this.__inputSelectionMove
+		}, this);
+		this.__kr.listen(this.__$base);
+
+		this.selectionStart = -1;
+		this.selectionEnd = -1;
+	}
+	IPubSub.implement(NoteViewInputReceiver.prototype);
+
+	NoteViewInputReceiver.prototype.__input = function(ev) {
+		this.syncSelectionRange();
+		this.fire("input");
+	};
+
+	NoteViewInputReceiver.prototype.__inputTab = function(ev) {
+		var val = this.getValue();
+
+		this.setValue(
+			val.slice(0, this.selectionStart) +
+			"\t" +
+			val.slice(this.selectionEnd)
+		)
+
+		this.syncSelectionRange(this.selectionStart + 1, this.selectionStart + 1);
+		this.fire("input");
+		ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputDeleteTab = function(ev) {
+		var val = this.getValue();
+
+		var lastLine = val.slice(0, this.selectionStart).split("\n").pop(),
+			len = lastLine.length,
+			indentLevel = lastLine.match(/^\t*/)[0].length;
+
+		if (indentLevel > 0) {
+			this.setValue(
+				val.slice(0, this.selectionStart - len) +
+				lastLine.slice(1) +
+				val.slice(this.selectionEnd)
+			);
+
+			this.syncSelectionRange(this.selectionStart - 1, this.selectionStart - 1);
+			this.fire("input");
+		}
+		ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputEnter = function(ev) {
+		var val = this.getValue();
+
+		var lastLine = val.slice(0, this.selectionStart).split("\n").pop(),
+			indentLevel = lastLine.match(/^\t*/)[0].length;
+
+		this.setValue(
+			val.slice(0, this.selectionStart) +
+			"\n" + Array(indentLevel + 1).join("\t") +
+			val.slice(this.selectionEnd)
+		)
+
+		this.syncSelectionRange(this.selectionStart + 1 + indentLevel, this.selectionStart + 1 + indentLevel);
+		this.fire("input");
+		ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionMove = function(ev) {
+		this.syncSelectionRange();
+		this.fire("input");
+		// ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__blurTextArea = function(ev) {
+		this.lostFocus();
+	};
+
+	/*-------------------------------------------------
+	 * value
+	 */
+	NoteViewInputReceiver.prototype.getValue = function() {
+		return this.__$base.val();
+	};
+	NoteViewInputReceiver.prototype.setValue = function(val) {
+		return this.__$base.val(val);
+	};
+
+	/*-------------------------------------------------
+	 * focus
+	 */
+	NoteViewInputReceiver.prototype.setFocus = function() {
+		this.syncSelectionRange();
+		this.fire("focus");
+		this.__$base.focus(true);
+	};
+
+	NoteViewInputReceiver.prototype.lostFocus = function() {
+		this.fire("blur");
+	};
+
+	/*-------------------------------------------------
+	 * Selection Range
+	 */
+	NoteViewInputReceiver.prototype.syncSelectionRange = function(start, end) {
+		if (start !== undefined) {
+			this.__$base[0].selectionStart = start;
+		}
+		if (end !== undefined) {
+			this.__$base[0].selectionEnd = end;
+		}
+
+		this.selectionStart = this.__$base[0].selectionStart;
+		this.selectionEnd = this.__$base[0].selectionEnd;
+	};
+
+	return NoteViewInputReceiver;
 }());
 ;var NoteViewPageModel = (function() {
 
@@ -1435,6 +1500,8 @@ var NoteView = (function() {
 		this.super();
 		this.__$base = $("<div class='NoteView-base'></div>");
 		this.__$base.bind("click", this.__click, this, true);
+
+		this.receiver = new NoteViewInputReceiver();
 	}
 	extendClass(NoteView, View);
 
@@ -1469,7 +1536,7 @@ var NoteView = (function() {
 
 	NoteView.prototype.__addTextbox = function(model) {
 		var model = model || new NoteViewTextboxModel(),
-			textbox = new NoteViewTextbox();
+			textbox = new NoteViewTextbox(this.receiver);
 
 		textbox.bindModel(model);
 		textbox.appendTo(this);
