@@ -80,41 +80,38 @@ var app = (function() {
 	};
 
 	app.saveFile = function(ev) {
-		console.log("セーブ");
 		app.noteView.model.save("test");
 		app.alertView.show("保存しました");
 		if (ev) ev.preventDefault();
 	};
 
 	app.openFile = function(ev) {
-		console.log("開く");
 		var savedata = Model.load("test");
 		if (!savedata) {
 			app.alertView.showError("セーブデータが存在しません");
 			return;
 		}
 		app.noteView.bindModel(savedata);
+		app.alertView.show("読み込みました");
 
 		if (ev) ev.preventDefault();
 	};
 
 	app.newFile = function(ev) {
-		console.log("新規作成");
+		app.alertView.show("新規作成");
 		app.noteView.bindModel(new NoteViewPageModel());
 
 		if (ev) ev.preventDefault();
 	};
 
 	app.importFile = function(ev) {
-		console.log("Import");
-		console.log("未実装");
+		app.alertView.show("Import(未実装)");
 
 		if (ev) ev.preventDefault();
 	};
 
 	app.exportFile = function(ev) {
-		console.log("Export");
-		console.log("未実装");
+		app.alertView.show("Export(未実装)");
 
 		if (ev) ev.preventDefault();
 	};

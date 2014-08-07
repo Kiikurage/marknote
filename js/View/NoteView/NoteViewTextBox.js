@@ -186,7 +186,7 @@ var NoteViewTextbox = (function() {
 		$textarea.unbind("input", this.__input, this, true);
 		$textarea.unbind("blur", this.__blurTextArea, this, true);
 
-		if (this.model.text === "") this.remove();
+		if (this.model.text.replace(/\s*/g, "") === "") this.remove();
 		this.__kr.unlisten($textarea);
 	};
 
