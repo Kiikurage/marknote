@@ -14,6 +14,10 @@
 						"type": "native",
 						"value": 0
 					},
+					"_w": {
+						"type": "native",
+						"value": 400
+					},
 					"_text": {
 						"type": "native",
 						"value": "#Marknote\nマークダウンで手軽に綺麗にノートをとれるウェブアプリ\n===\nver. 0.1.1\n"
@@ -33,6 +37,10 @@
 					"_y": {
 						"type": "native",
 						"value": 160
+					},
+					"_w": {
+						"type": "native",
+						"value": 400
 					},
 					"_text": {
 						"type": "native",
@@ -54,29 +62,13 @@
 						"type": "native",
 						"value": 320
 					},
+					"_w": {
+						"type": "native",
+						"value": 400
+					},
 					"_text": {
 						"type": "native",
 						"value": "\t#プロジェクトの情報\n-開発者 きくらげ(twitter: @mr_temperman)\n-\tgithub https://github.com/kikura-yuichiro/marknote"
-					},
-					"_focus": {
-						"type": "native",
-						"value": false
-					}
-				}
-			}, {
-				"type": "NoteViewTextboxModel",
-				"value": {
-					"_x": {
-						"type": "native",
-						"value": 660
-					},
-					"_y": {
-						"type": "native",
-						"value": 580
-					},
-					"_text": {
-						"type": "native",
-						"value": " "
 					},
 					"_focus": {
 						"type": "native",
@@ -93,6 +85,10 @@
 					"_y": {
 						"type": "native",
 						"value": 0
+					},
+					"_w": {
+						"type": "native",
+						"value": 400
 					},
 					"_text": {
 						"type": "native",
@@ -113,6 +109,10 @@
 					"_y": {
 						"type": "native",
 						"value": 420
+					},
+					"_w": {
+						"type": "native",
+						"value": 400
 					},
 					"_text": {
 						"type": "native",
