@@ -42,5 +42,13 @@ var View = (function() {
 		});
 	};
 
+	View.prototype.setWidth = function(width) {
+		this.__$base.css("width", width);
+	};
+
+	View.prototype.setHeight = function(height) {
+		this.__$base.css("height", height);
+	};
+
 	return View;
 }());

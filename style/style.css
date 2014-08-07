@@ -26,6 +26,7 @@ h3.Markdown-header,
 h4.Markdown-header,
 h5.Markdown-header,
 h6.Markdown-header {
+  display: block;
   margin: 30px 0 10px 0;
   line-height: 1em;
   box-sizing: border-box;
@@ -200,11 +201,8 @@ h6.Markdown-header {
 .NoteViewTextbox-base {
   display: block;
   position: absolute;
-  width: auto;
-  height: auto;
   padding: 30px;
   margin: 0;
-  border: 1px solid transparent;
   border-radius: 3px;
   transition: background 0.2s ease;
 }
@@ -219,9 +217,19 @@ h6.Markdown-header {
 .NoteViewTextbox-base.-edit {
   background: rgba(255, 213, 79, 0.5);
 }
+.NoteViewTextbox-resizeHandle {
+  display: block;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  cursor: e-resize;
+}
 .NoteViewTextbox-textLayer {
   display: block;
   position: relative;
+  width: 100%;
   border: none;
   background: none;
   color: #212121;
@@ -253,7 +261,7 @@ h6.Markdown-header {
   right: 0px;
   bottom: -60px;
   padding: 10px 20px;
-  background: #2baf2b;
+  background: #455ede;
   color: #ffffff;
   z-index: 65535;
   transition: 0.3s ease;

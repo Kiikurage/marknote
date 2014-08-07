@@ -389,7 +389,7 @@
 }());
 ;(function() {
 	var cssValueNormalize = (function() {
-		var regCssNoUnit = /^(?:opacity|z-index)$/;
+		var regCssNoUnit = /^(?:opacity|zIndex)$/;
 
 		return function cssValueNormalize(key, value) {
 			if (typeof value === "number" &&
@@ -613,6 +613,14 @@
 			width: width,
 			height: height
 		});
+	};
+
+	View.prototype.setWidth = function(width) {
+		this.__$base.css("width", width);
+	};
+
+	View.prototype.setHeight = function(height) {
+		this.__$base.css("height", height);
 	};
 
 	return View;
@@ -1117,11 +1125,15 @@ var ModelTest = (function() {
 	function NoteViewTextboxModel() {
 		this._text = "";
 		this.__receiver = null;
+		this._w = 300;
+		this._z = 0;
 	}
 	extendClass(NoteViewTextboxModel, Model);
 
 	NoteViewTextboxModel.__record("x");
 	NoteViewTextboxModel.__record("y");
+	NoteViewTextboxModel.__record("z");
+	NoteViewTextboxModel.__record("w");
 	NoteViewTextboxModel.__record("text");
 	NoteViewTextboxModel.__record("focus");
 
@@ -1140,18 +1152,15 @@ var ModelTest = (function() {
 		this.__$base.bind("click", this.__click, this, true);
 		this.__$base.bind("mousedown", this.__mousedown, this, true);
 
+		this.__$resizeHandle = $("<div class='NoteViewTextbox-resizeHandle'></div>")
+		this.__$resizeHandle.appendTo(this.__$base);
+		this.__$resizeHandle.bind("mousedown", this.__mousedownResizeHandle, this, true);
+
 		this.__$textLayer = $("<div class='NoteViewTextbox-textLayer'></div>")
 		this.__$textLayer.appendTo(this.__$base);
 
 		this.__$cursorLayer = $("<div class='NoteViewTextbox-cursorLayer'></div>")
 		this.__$cursorLayer.appendTo(this.__$base);
-
-		this.__dragging = {
-			startX: null,
-			startY: null,
-			startMX: null,
-			startMY: null,
-		};
 
 		this.__receiver = receiver;
 	}
@@ -1178,23 +1187,25 @@ var ModelTest = (function() {
 	NoteViewTextbox.prototype.__mousedown = function(ev) {
 		this.__$base.addClass("-drag");
 
-		document.body.bind("mousemove", this.__mousemoveForMove, this, true);
-		document.body.bind("mouseup", this.__mouseupForMove, this, true);
+		document.body.bind("mousemove", this.__mousemove, this, true);
+		document.body.bind("mouseup", this.__mouseup, this, true);
 
 		this.__startMX = ev.x;
 		this.__startMY = ev.y;
 		this.__startX = parseInt(this.__$base.css("left"));
 		this.__startY = parseInt(this.__$base.css("top"));
+
+		ev.stopPropagation();
 	};
 
-	NoteViewTextbox.prototype.__mouseupForMove = function(ev) {
+	NoteViewTextbox.prototype.__mouseup = function(ev) {
 		this.__$base.removeClass("-drag");
 
-		document.body.unbind("mousemove", this.__mousemoveForMove, this, true);
-		document.body.unbind("mouseup", this.__mouseupForMove, this, true);
+		document.body.unbind("mousemove", this.__mousemove, this, true);
+		document.body.unbind("mouseup", this.__mouseup, this, true);
 	};
 
-	NoteViewTextbox.prototype.__mousemoveForMove = function(ev) {
+	NoteViewTextbox.prototype.__mousemove = function(ev) {
 		var x = Math.round((this.__startX + (ev.x - this.__startMX)) / GRID_SIZE) * GRID_SIZE,
 			y = Math.round((this.__startY + (ev.y - this.__startMY)) / GRID_SIZE) * GRID_SIZE;
 
@@ -1203,6 +1214,35 @@ var ModelTest = (function() {
 
 		this.model.x = x;
 		this.model.y = y;
+	};
+
+	NoteViewTextbox.prototype.__mousedownResizeHandle = function(ev) {
+		this.__$base.addClass("-drag");
+
+		document.body.bind("mousemove", this.__mousemoveResizeHandle, this, true);
+		document.body.bind("mouseup", this.__mouseupResizeHandle, this, true);
+
+		this.__startMX = ev.x;
+		this.__startW = parseInt(this.model.w);
+
+		ev.stopPropagation();
+	};
+
+	NoteViewTextbox.prototype.__mouseupResizeHandle = function(ev) {
+		this.__$base.removeClass("-drag");
+
+		document.body.unbind("mousemove", this.__mousemoveResizeHandle, this, true);
+		document.body.unbind("mouseup", this.__mouseupResizeHandle, this, true);
+
+		ev.stopPropagation();
+	};
+
+	NoteViewTextbox.prototype.__mousemoveResizeHandle = function(ev) {
+		var w = this.__startW + Math.round((ev.x - this.__startMX) / GRID_SIZE) * GRID_SIZE;
+
+		if (w < 50) w = 50;
+
+		this.model.w = w;
 	};
 
 	/*-------------------------------------------------
@@ -1248,7 +1288,12 @@ var ModelTest = (function() {
 
 		this.__$base.toggleClass("-edit", model.focus);
 		this.__$textLayer.html(html);
-		this.setPosition(model.x, model.y);
+		this.__$base.css({
+			left: model.x,
+			top: model.y,
+			width: model.w,
+			zIndex: model.z
+		});
 
 		this.fire("update", this);
 		console.log(this.__receiver.selectionStart, this.__receiver.selectionEnd)
