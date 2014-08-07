@@ -4,7 +4,7 @@
 
 		return function cssValueNormalize(key, value) {
 			if (typeof value === "number" &&
-				!regCssNoUnit.test(value)) {
+				!regCssNoUnit.test(key)) {
 				value = "" + value + "px";
 			}
 			return value;

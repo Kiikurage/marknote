@@ -11,6 +11,7 @@ test data
 //#include("/View/ButtonView.js");
 //#include("/View/NoteView.js");
 //#include("/View/AlertView.js");
+//#include("/View/NewFileDialogView.js");
 
 var app = (function() {
 
@@ -98,10 +99,15 @@ var app = (function() {
 	};
 
 	app.newFile = function(ev) {
+		var dialog = new NewFileDialogView()
+		dialog.appendTo($("body"));
+		dialog.bind("success", app.createNewFile, app);
+		dialog.fadeIn();
+	};
+
+	app.createNewFile = function(fileName) {
 		app.alertView.show("新規作成");
 		app.noteView.bindModel(new NoteViewPageModel());
-
-		if (ev) ev.preventDefault();
 	};
 
 	app.importFile = function(ev) {
