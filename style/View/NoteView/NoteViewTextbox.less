@@ -34,34 +34,64 @@
 	width: 10px;
 
 	cursor: e-resize;
+	z-index: 65534;
 }
 
-.NoteViewTextbox-textLayer {
+.NoteViewTextbox-layer() {
 	display: block;
-	position: relative;
+	position: absolute;
 
-	width: 100%;
+	top: 30px;
+	left: 30px;
+	right: 30px;
+	bottom: 30px;
+
+	padding: 0;
+	margin: 0;
 
 	border: none;
 	background: none;
 
-	color: @Grey900;
-	font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
-	font-size: 14px;
-	line-height: 1.2;
-
 	outline: none;
 	box-sizing: border-box;
 }
-.NoteViewTextbox-cursorLayer {
-	display: block;
+.NoteViewTextbox-textLayer {
+	.NoteViewTextbox-layer();
 	position: relative;
-
 	top: 0;
 	left: 0;
 	right: 0;
 	bottom: 0;
+}
+.NoteViewTextbox-dummyLine,
+.NoteViewTextbox-line {
+	display: block;
+	position: relative;
 
-	width: 100%;
-	height: 100%;
+	padding: 0;
+	margin: 0;
+
+	color: @Grey900;
+	font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
+	font-size: 14px;
+	line-height: 1.5em;
+}
+
+.NoteViewTextbox-cursorLayer {
+	.NoteViewTextbox-layer();
+}
+.NoteViewTextbox-cursor {
+	display: block;
+	position: absolute;
+
+	top: 0;
+	left: 0;
+	width: 1px;
+	height: 0;
+
+	background: @Grey900;
+}
+.NoteViewTextbox-dummyLine {
+	display: inline-block;
+	opacity: 0;
 }

@@ -1162,6 +1162,12 @@ var ModelTest = (function() {
 		this.__$cursorLayer = $("<div class='NoteViewTextbox-cursorLayer'></div>")
 		this.__$cursorLayer.appendTo(this.__$base);
 
+		this.__$cursor = $("<div class='NoteViewTextbox-cursor'></div>");
+		this.__$cursor.appendTo(this.__$cursorLayer);
+
+		this.__$dummyLine = $("<div class='NoteViewTextbox-dummyLine'></div>");
+		this.__$dummyLine.appendTo(this.__$cursorLayer);
+
 		this.__receiver = receiver;
 	}
 	extendClass(NoteViewTextbox, View);
@@ -1284,7 +1290,8 @@ var ModelTest = (function() {
 	NoteViewTextbox.prototype.update = function() {
 		var model = this.model,
 			text = model.text,
-			html = Markdown.parse(text);
+			// html = Markdown.parse(text);
+			html = this.convertTextToHTML(text);
 
 		this.__$base.toggleClass("-edit", model.focus);
 		this.__$textLayer.html(html);
@@ -1295,8 +1302,62 @@ var ModelTest = (function() {
 			zIndex: model.z
 		});
 
+		var cursorRenderingInfo = this.getCursorRenderingInfo();
+		this.__$cursor.css({
+			left: cursorRenderingInfo.x,
+			top: cursorRenderingInfo.y,
+			height: cursorRenderingInfo.h
+		});
+
 		this.fire("update", this);
-		console.log(this.__receiver.selectionStart, this.__receiver.selectionEnd)
+	};
+
+	NoteViewTextbox.prototype.convertTextToHTML = function(text) {
+		var html = "",
+			lines = text.split("\n");
+
+		for (var i = 0, max = lines.length; i < max; i++) {
+			html +=
+				"<p class='NoteViewTextbox-line'>" +
+				this.convertLineToHTML(lines[i]) +
+				"</p>";
+		}
+
+		return html;
+	};
+
+	NoteViewTextbox.prototype.convertLineToHTML = function(line) {
+		return line
+			.replace(/\t/g, "[tab]")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/ /g, "[space]");
+	};
+
+	NoteViewTextbox.prototype.getCursorRenderingInfo = function() {
+		var text = this.model.text.slice(0, this.__receiver.selectionStart),
+			lines = text.split("\n"),
+			rows = lines.length,
+			x, y, h;
+
+		//y位置は対応する行要素のoffsetTop
+		var line = this.__$textLayer.find(".NoteViewTextbox-line")[rows - 1];
+		y = line.offsetTop;
+
+		//x位置は必要文字数分のhtmlを実際にダミーDOMに流し込んで横幅を測定
+		//hはダミーDOMの高さ
+		var html = this.convertLineToHTML(lines[rows - 1]);
+		this.__$dummyLine.html(html);
+
+		var gcr = this.__$dummyLine[0].getBoundingClientRect();
+		x = gcr.width;
+		h = parseInt(getComputedStyle(line).lineHeight);
+
+		return {
+			x: x,
+			y: y,
+			h: h
+		}
 	};
 
 	return NoteViewTextbox;
@@ -1377,10 +1438,11 @@ var ModelTest = (function() {
 			"shift+tab": this.__inputDeleteTab,
 			"tab": this.__inputTab,
 			"enter": this.__inputEnter,
+			"left": this.__inputSelectionLeft,
+			"right": this.__inputSelectionRight,
+
 			"up": this.__inputSelectionMove,
 			"down": this.__inputSelectionMove,
-			"left": this.__inputSelectionMove,
-			"right": this.__inputSelectionMove,
 			"shift+up": this.__inputSelectionMove,
 			"shift+down": this.__inputSelectionMove,
 			"shift+left": this.__inputSelectionMove,
@@ -1392,8 +1454,8 @@ var ModelTest = (function() {
 		}, this);
 		this.__kr.listen(this.__$base);
 
-		this.selectionStart = -1;
-		this.selectionEnd = -1;
+		this.selectionStart = 0;
+		this.selectionEnd = 0;
 	}
 	IPubSub.implement(NoteViewInputReceiver.prototype);
 
@@ -1455,6 +1517,26 @@ var ModelTest = (function() {
 
 	NoteViewInputReceiver.prototype.__inputSelectionMove = function(ev) {
 		this.syncSelectionRange();
+		this.fire("input");
+		// ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionRight = function(ev) {
+		this.syncSelectionRange();
+		if (this.selectionStart < this.__$base[0].value.length) {
+			this.selectionStart++;
+			this.selectionEnd++;
+		}
+		this.fire("input");
+		// ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionLeft = function(ev) {
+		this.syncSelectionRange();
+		if (this.selectionStart > 0) {
+			this.selectionStart--;
+			this.selectionEnd--;
+		}
 		this.fire("input");
 		// ev.preventDefault();
 	};

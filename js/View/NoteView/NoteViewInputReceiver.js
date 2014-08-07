@@ -14,10 +14,11 @@ var NoteViewInputReceiver = (function() {
 			"shift+tab": this.__inputDeleteTab,
 			"tab": this.__inputTab,
 			"enter": this.__inputEnter,
+			"left": this.__inputSelectionLeft,
+			"right": this.__inputSelectionRight,
+
 			"up": this.__inputSelectionMove,
 			"down": this.__inputSelectionMove,
-			"left": this.__inputSelectionMove,
-			"right": this.__inputSelectionMove,
 			"shift+up": this.__inputSelectionMove,
 			"shift+down": this.__inputSelectionMove,
 			"shift+left": this.__inputSelectionMove,
@@ -29,8 +30,8 @@ var NoteViewInputReceiver = (function() {
 		}, this);
 		this.__kr.listen(this.__$base);
 
-		this.selectionStart = -1;
-		this.selectionEnd = -1;
+		this.selectionStart = 0;
+		this.selectionEnd = 0;
 	}
 	IPubSub.implement(NoteViewInputReceiver.prototype);
 
@@ -92,6 +93,26 @@ var NoteViewInputReceiver = (function() {
 
 	NoteViewInputReceiver.prototype.__inputSelectionMove = function(ev) {
 		this.syncSelectionRange();
+		this.fire("input");
+		// ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionRight = function(ev) {
+		this.syncSelectionRange();
+		if (this.selectionStart < this.__$base[0].value.length) {
+			this.selectionStart++;
+			this.selectionEnd++;
+		}
+		this.fire("input");
+		// ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionLeft = function(ev) {
+		this.syncSelectionRange();
+		if (this.selectionStart > 0) {
+			this.selectionStart--;
+			this.selectionEnd--;
+		}
 		this.fire("input");
 		// ev.preventDefault();
 	};
