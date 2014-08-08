@@ -64,7 +64,8 @@
 	bottom: 0;
 }
 .NoteViewTextbox-dummyLine,
-.NoteViewTextbox-line {
+.NoteViewTextbox-line,
+kbd {
 	display: block;
 	position: relative;
 
@@ -72,13 +73,16 @@
 	margin: 0;
 
 	color: @Grey900;
-	font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
+	font-family: Osaka-mono, "MS Gothic", monospace;
 	font-size: 14px;
+	line-height: 1.2;
 }
 .NoteViewTextbox-scope {
 	display: inline-block;
 
 	max-width: 100%;
+	margin: 5px 0;
+	padding: 0;
 
 	word-wrap: break-word; 
 
@@ -99,25 +103,40 @@
 
 	font-size: 1.8em;
 }
+.NoteViewTextbox-scope-hr {
+	border-bottom: 1px solid @Grey400;
+	color: transparent;
+}
+.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-hr {
+	color: @Grey400;
+	border-bottom: none;
+}
+
 .NoteViewTextbox-scope-indent {
 	color: transparent;
+	border-right: 1px solid transparent;
 }
 .NoteViewTextbox-base.-edit .NoteViewTextbox-scope-indent {
 	color: @Grey400;
 }
 
 .NoteViewTextbox-scope-list {
-	padding-left: 20px;
+	padding-left: 14px;
 
 	&:before {
 		display: inline-block;
 		position: relative;
 
-		width: 20px;
-		margin-left: -20px;
+		width: 14px;
+		margin-left: -14px;
+		margin-bottom: -2px;
+		padding: 0;
 
-		content: "・";
-		font-weight: bold;
+		content: "\02022";
+		color: @Cyan300;
+		text-align: center;
+
+		vertical-align: middle;
 	}
 }
 

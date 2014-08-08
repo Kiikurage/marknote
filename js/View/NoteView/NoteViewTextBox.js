@@ -129,6 +129,7 @@ var NoteViewTextbox = (function() {
 		receiver.bind("blur", this.lostFocus, this);
 		receiver.bind("input", this.model.__receiverInput, this.model);
 		receiver.setValue(this.model.text);
+		receiver.renderingView = this;
 
 		this.__$cursor.css("display", "");
 
@@ -141,6 +142,7 @@ var NoteViewTextbox = (function() {
 		var receiver = this.__receiver;
 		receiver.unbind("blur", this.lostFocus, this);
 		receiver.unbind("input", this.model.__receiverInput, this.model);
+		receiver.renderingView = null;
 
 		this.__$cursor.css("display", "none");
 		this.blinkStop();
@@ -194,7 +196,7 @@ var NoteViewTextbox = (function() {
 
 	NoteViewTextbox.prototype.convertLineToHTML = function(line) {
 		var pattern = "<span class='{indentClass}'>{indent}</span><span class='{class}'>{body}</span>",
-			indentClasses = ["NoteViewTextbox-scope-indent"],
+			indentClasses = ["NoteViewTextbox-scope", "NoteViewTextbox-scope-indent"],
 			classes = ["NoteViewTextbox-scope"];
 
 		var parts = line.match(/^(\t*)(.*)$/, ""),
@@ -202,7 +204,7 @@ var NoteViewTextbox = (function() {
 			body = parts[2];
 
 		var escapedIndent = indent
-			.replace(/\t/g, "---→");
+			.replace(/\t/g, "---&gt;");
 
 		if (body[0] === "#") {
 			var headerLevel = indent.length + 1;
@@ -210,6 +212,7 @@ var NoteViewTextbox = (function() {
 			classes.push("NoteViewTextbox-scope-header" + headerLevel);
 		}
 		if (body[0] === "-") classes.push("NoteViewTextbox-scope-list");
+		if (/^={3,}.*$/.test(body)) classes.push("NoteViewTextbox-scope-hr");
 
 		var escapedBody = body
 			.replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;")
@@ -238,12 +241,14 @@ var NoteViewTextbox = (function() {
 		//x位置は必要文字数分のhtmlを実際にダミーDOMに流し込んで横幅を測定
 		//hはダミーDOMの高さ
 		var line = lines[rows - 1],
-			html = this.convertLineToHTML(line),
-			lineElementWidth = parseInt(getComputedStyle(lineElement).width),
+			html = this.convertLineToHTML(line);
+
+		this.__$dummyLine.html(html);
+
+		var lineElementWidth = parseInt(getComputedStyle(lineElement).width),
 			lineElementLineHeight = this.__$dummyLine.css("height"),
 			gcr;
 
-		this.__$dummyLine.html(html);
 		gcr = this.__$dummyLine[0].getBoundingClientRect();
 
 		//もし、ダミーDOMのwidthが実際のlineElementのwidthより長い場合、折り返しが発生している
@@ -270,6 +275,7 @@ var NoteViewTextbox = (function() {
 
 		x = gcr.width;
 
+		//高さ
 		var scopeElement
 		if (lines[rows - 1] === "") {
 			scopeElement = null;
@@ -291,6 +297,88 @@ var NoteViewTextbox = (function() {
 			y: y,
 			h: h
 		}
+	};
+
+	//指定された座標が論理行で何行目何文字目かを返す
+	NoteViewTextbox.prototype.getRenderingPositionInfo = function(x, y) {
+		var lines = this.model.text.split("\n"),
+			lineElements = this.__$textLayer.children(),
+			row = 0;
+
+		for (var max = lineElements.length; row < max; row++) {
+			if (lineElements[row].offsetTop > y) break
+		}
+		row--;
+
+		//範囲外
+		if (row < 0 || row >= lines.length) {
+			return {
+				row: row,
+				column: -1
+			};
+		}
+
+		var line = lines[row],
+			html = this.convertLineToHTML(line),
+			column = 0,
+			lineElement = lineElements[row],
+			lineElementWidth = parseInt(getComputedStyle(lineElement).width),
+			lineElementLineHeight = this.__$dummyLine.css("height"),
+			gcr;
+
+		//仮想行の折り返しが生じていないかを確認
+		this.__$dummyLine.html(html);
+		gcr = this.__$dummyLine[0].getBoundingClientRect();
+		while (true) {
+			if (gcr.width > lineElementWidth) {
+
+				//指定座標が、折り返しより後にあるのかを確認
+				if (lineElement.offsetTop + lineElementLineHeight > y) break
+
+				var realLine = "";
+
+				while (gcr.width > lineElementWidth) {
+					//うまくいくまで末尾の1文字を削る
+					realLine += line.substr(-1);
+					line = line.slice(0, line.length - 1);
+					html = this.convertLineToHTML(line);
+					this.__$dummyLine.html(html);
+					gcr = this.__$dummyLine[0].getBoundingClientRect();
+				}
+
+				column += line.length;
+				line = realLine;
+				html = this.convertLineToHTML(line);
+				this.__$dummyLine.html(html);
+				gcr = this.__$dummyLine[0].getBoundingClientRect();
+
+			} else {
+				break;
+			}
+		}
+
+		//dummtに1文字ずつ入れていき、指定位置を超えたらそこが指定された座標に対応する文字の位置
+		var offset = 0;
+
+		html = this.convertLineToHTML(line.slice(0, offset));
+		this.__$dummyLine.html(html);
+		gcr = this.__$dummyLine[0].getBoundingClientRect();
+
+		while (gcr.width < x) {
+			offset++;
+			html = this.convertLineToHTML(line.slice(0, offset));
+			this.__$dummyLine.html(html);
+			gcr = this.__$dummyLine[0].getBoundingClientRect();
+
+			if (offset >= line.length) break;
+		}
+
+		column += offset;
+
+		return {
+			row: row,
+			column: column
+		};
 	};
 
 	NoteViewTextbox.prototype.blinkStart = function() {

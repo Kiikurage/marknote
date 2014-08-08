@@ -16,6 +16,9 @@ var NoteViewInputReceiver = (function() {
 			"enter": this.__inputEnter,
 			"left": this.__inputSelectionLeft,
 			"right": this.__inputSelectionRight,
+			"cmd+up": this.__inputSelectionJumpHead,
+			"cmd+down": this.__inputSelectionJumpLast,
+
 			"up": this.__inputSelectionUp,
 			"down": this.__inputSelectionDown,
 
@@ -23,8 +26,6 @@ var NoteViewInputReceiver = (function() {
 			"shift+down": this.__inputSelectionMove,
 			"shift+left": this.__inputSelectionMove,
 			"shift+right": this.__inputSelectionMove,
-			"cmd+up": this.__inputSelectionMove,
-			"cmd+down": this.__inputSelectionMove,
 			"cmd+left": this.__inputSelectionMove,
 			"cmd+right": this.__inputSelectionMove
 		}, this);
@@ -32,6 +33,8 @@ var NoteViewInputReceiver = (function() {
 
 		this.selectionStart = 0;
 		this.selectionEnd = 0;
+
+		this.renderingView = null;
 	}
 	IPubSub.implement(NoteViewInputReceiver.prototype);
 
@@ -98,45 +101,60 @@ var NoteViewInputReceiver = (function() {
 	};
 
 	NoteViewInputReceiver.prototype.__inputSelectionRight = function(ev) {
-		this.syncSelectionRange();
 		if (this.selectionStart < this.__$base[0].value.length) {
 			this.selectionStart++;
 			this.selectionEnd++;
 		}
+		this.syncSelectionRange(true);
 		this.fire("input");
-		// ev.preventDefault();
+		ev.preventDefault();
 	};
 
 	NoteViewInputReceiver.prototype.__inputSelectionLeft = function(ev) {
-		this.syncSelectionRange();
 		if (this.selectionStart > 0) {
 			this.selectionStart--;
 			this.selectionEnd--;
 		}
+		this.syncSelectionRange(true);
 		this.fire("input");
-		// ev.preventDefault();
+		ev.preventDefault();
 	};
 
 	NoteViewInputReceiver.prototype.__inputSelectionDown = function(ev) {
-		this.syncSelectionRange();
-		if (this.selectionStart < this.__$base[0].value.length) {
-			this.selectionStart++;
-			this.selectionEnd++;
-		}
+		var cursorInfo = this.renderingView.getCursorRenderingInfo(),
+			info = this.renderingView.getRenderingPositionInfo(cursorInfo.x, cursorInfo.y + cursorInfo.h + 10);
+
+		this.setSelectionRangeByRowColumn(info.row, info.column);
 		this.fire("input");
-		// ev.preventDefault();
+		ev.preventDefault();
 	};
 
 	NoteViewInputReceiver.prototype.__inputSelectionUp = function(ev) {
-		this.syncSelectionRange();
-		if (this.selectionStart > 0) {
-			this.selectionStart--;
-			this.selectionEnd--;
-		}
+		var cursorInfo = this.renderingView.getCursorRenderingInfo(),
+			info = this.renderingView.getRenderingPositionInfo(cursorInfo.x, cursorInfo.y - 10);
+
+		this.setSelectionRangeByRowColumn(info.row, info.column);
 		this.fire("input");
-		// ev.preventDefault();
+		ev.preventDefault();
 	};
 
+	NoteViewInputReceiver.prototype.__inputSelectionJumpHead = function(ev) {
+		this.selectionStart = 0;
+		this.selectionEnd = 0;
+
+		this.syncSelectionRange(true);
+		this.fire("input");
+		ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionJumpLast = function(ev) {
+		this.selectionStart = this.__$base.val().length;
+		this.selectionEnd = this.__$base.val().length;
+
+		this.syncSelectionRange(true);
+		this.fire("input");
+		ev.preventDefault();
+	};
 
 	NoteViewInputReceiver.prototype.__blurTextArea = function(ev) {
 		this.lostFocus();
@@ -169,6 +187,10 @@ var NoteViewInputReceiver = (function() {
 	 * Selection Range
 	 */
 	NoteViewInputReceiver.prototype.syncSelectionRange = function(start, end) {
+		if (start === true) {
+			return this.syncSelectionRange(this.selectionStart, this.selectionEnd);
+		}
+
 		if (start !== undefined) {
 			this.__$base[0].selectionStart = start;
 		}
@@ -178,6 +200,45 @@ var NoteViewInputReceiver = (function() {
 
 		this.selectionStart = this.__$base[0].selectionStart;
 		this.selectionEnd = this.__$base[0].selectionEnd;
+	};
+
+	NoteViewInputReceiver.prototype.convertRowColumnToIndex = function(row, column) {
+		var lines = this.__$base.val().split("\n");
+		if (row >= lines.length) {
+			row = lines.length - 1;
+		}
+		if (row < 0) {
+			row = 0;
+		}
+
+		var line = lines[row];
+		if (column > line.length) {
+			column = line.length;
+		}
+		if (column < 0) {
+			column = 0;
+		}
+
+		var index = 0;
+		for (var i = 0, max = row; i < max; i++) {
+			index += lines[i].length + 1 //+1は改行コードの分
+		}
+		index += column;
+
+		return index;
+	}
+
+	NoteViewInputReceiver.prototype.setSelectionRangeByRowColumn = function(startR, startC, endR, endC) {
+		var start = this.convertRowColumnToIndex(startR, startC),
+			end;
+
+		if (arguments.length === 2) {
+			end = this.convertRowColumnToIndex(startR, startC);
+		} else {
+			end = this.convertRowColumnToIndex(endR, endC);
+		}
+
+		return this.syncSelectionRange(start, end);
 	};
 
 	return NoteViewInputReceiver;
