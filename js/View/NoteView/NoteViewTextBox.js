@@ -130,6 +130,8 @@ var NoteViewTextbox = (function() {
 		receiver.bind("input", this.model.__receiverInput, this.model);
 		receiver.setValue(this.model.text);
 
+		this.__$cursor.css("display", "");
+
 		receiver.setFocus();
 	};
 
@@ -139,6 +141,9 @@ var NoteViewTextbox = (function() {
 		var receiver = this.__receiver;
 		receiver.unbind("blur", this.lostFocus, this);
 		receiver.unbind("input", this.model.__receiverInput, this.model);
+
+		this.__$cursor.css("display", "none");
+		this.blinkStop();
 
 		if (this.model.text.replace(/\s*/g, "") === "") this.remove();
 	};
@@ -168,6 +173,8 @@ var NoteViewTextbox = (function() {
 			height: cursorRenderingInfo.h
 		});
 
+		if (this.model.focus) this.blinkStart();
+
 		this.fire("update", this);
 	};
 
@@ -186,11 +193,36 @@ var NoteViewTextbox = (function() {
 	};
 
 	NoteViewTextbox.prototype.convertLineToHTML = function(line) {
-		return line
-			.replace(/\t/g, "[tab]")
+		var pattern = "<span class='{indentClass}'>{indent}</span><span class='{class}'>{body}</span>",
+			indentClasses = ["NoteViewTextbox-scope-indent"],
+			classes = ["NoteViewTextbox-scope"];
+
+		var parts = line.match(/^(\t*)(.*)$/, ""),
+			indent = parts[1],
+			body = parts[2];
+
+		var escapedIndent = indent
+			.replace(/\t/g, "---→");
+
+		if (body[0] === "#") {
+			var headerLevel = indent.length + 1;
+			if (headerLevel > 6) headerLevel = 6;
+			classes.push("NoteViewTextbox-scope-header" + headerLevel);
+		}
+		if (body[0] === "-") classes.push("NoteViewTextbox-scope-list");
+
+		var escapedBody = body
+			.replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;")
+			.replace(/^\-/, "")
 			.replace(/</g, "&lt;")
 			.replace(/>/g, "&gt;")
-			.replace(/ /g, "[space]");
+			.replace(/ /g, "&nbsp;");
+
+		return pattern
+			.replace("{indentClass}", indentClasses.join(" "))
+			.replace("{indent}", escapedIndent)
+			.replace("{class}", classes.join(" "))
+			.replace("{body}", escapedBody);
 	};
 
 	NoteViewTextbox.prototype.getCursorRenderingInfo = function() {
@@ -200,23 +232,88 @@ var NoteViewTextbox = (function() {
 			x, y, h;
 
 		//y位置は対応する行要素のoffsetTop
-		var line = this.__$textLayer.find(".NoteViewTextbox-line")[rows - 1];
-		y = line.offsetTop;
+		var lineElement = this.__$textLayer.find(".NoteViewTextbox-line")[rows - 1];
+		y = lineElement.offsetTop;
 
 		//x位置は必要文字数分のhtmlを実際にダミーDOMに流し込んで横幅を測定
 		//hはダミーDOMの高さ
-		var html = this.convertLineToHTML(lines[rows - 1]);
-		this.__$dummyLine.html(html);
+		var line = lines[rows - 1],
+			html = this.convertLineToHTML(line),
+			lineElementWidth = parseInt(getComputedStyle(lineElement).width),
+			lineElementLineHeight = this.__$dummyLine.css("height"),
+			gcr;
 
-		var gcr = this.__$dummyLine[0].getBoundingClientRect();
+		this.__$dummyLine.html(html);
+		gcr = this.__$dummyLine[0].getBoundingClientRect();
+
+		//もし、ダミーDOMのwidthが実際のlineElementのwidthより長い場合、折り返しが発生している
+		while (gcr.width > lineElementWidth) {
+			var realLine = "";
+
+			//1行下に下げる
+			y += lineElementLineHeight;
+
+			while (gcr.width > lineElementWidth) {
+				//うまくいくまで末尾の1文字を削る
+				realLine += line.substr(-1);
+				line = line.slice(0, line.length - 1);
+				html = this.convertLineToHTML(line);
+				this.__$dummyLine.html(html);
+				gcr = this.__$dummyLine[0].getBoundingClientRect();
+			}
+
+			line = realLine;
+			html = this.convertLineToHTML(line);
+			this.__$dummyLine.html(html);
+			gcr = this.__$dummyLine[0].getBoundingClientRect();
+		}
+
 		x = gcr.width;
-		h = parseInt(getComputedStyle(line).lineHeight);
+
+		var scopeElement
+		if (lines[rows - 1] === "") {
+			scopeElement = null;
+		} else if ((/^\t*$/).test(lines[rows - 1])) {
+			scopeElement = lineElement.children[1];
+		} else {
+			scopeElement = this.__$dummyLine[0].lastChild;
+		}
+
+		if (scopeElement) {
+			y += scopeElement.offsetTop;
+			h = parseInt(getComputedStyle(scopeElement).height) || "";
+		} else {
+			h = "";
+		}
 
 		return {
 			x: x,
 			y: y,
 			h: h
 		}
+	};
+
+	NoteViewTextbox.prototype.blinkStart = function() {
+		if (this.__blinkTimerID) {
+			clearInterval(this.__blinkTimerID);
+		}
+
+		this.__$cursor.addClass("-show");
+
+		this.__blinkTimerID = setInterval(function() {
+			this.blink();
+		}.bind(this), 500);
+	};
+
+	NoteViewTextbox.prototype.blinkStop = function() {
+		this.__$cursor.addClass("-show");
+
+		clearInterval(this.__blinkTimerID);
+		this.__blinkTimerID = null;
+	};
+
+	NoteViewTextbox.prototype.blink = function() {
+		this.__$cursor.toggleClass("-show");
 	};
 
 	return NoteViewTextbox;

@@ -412,7 +412,14 @@
 
 			} else if (arguments.length === 1) {
 
-				return getComputedStyle(this[0])[key];
+				var val = getComputedStyle(this[0])[key],
+					valAsNumber = parseFloat(val);
+
+				if (val !== NaN) {
+					return valAsNumber
+				} else {
+					return val
+				}
 
 			} else {
 
@@ -1125,7 +1132,7 @@ var ModelTest = (function() {
 	function NoteViewTextboxModel() {
 		this._text = "";
 		this.__receiver = null;
-		this._w = 300;
+		this._w = 400;
 		this._z = 0;
 	}
 	extendClass(NoteViewTextboxModel, Model);
@@ -1271,6 +1278,8 @@ var ModelTest = (function() {
 		receiver.bind("input", this.model.__receiverInput, this.model);
 		receiver.setValue(this.model.text);
 
+		this.__$cursor.css("display", "");
+
 		receiver.setFocus();
 	};
 
@@ -1280,6 +1289,9 @@ var ModelTest = (function() {
 		var receiver = this.__receiver;
 		receiver.unbind("blur", this.lostFocus, this);
 		receiver.unbind("input", this.model.__receiverInput, this.model);
+
+		this.__$cursor.css("display", "none");
+		this.blinkStop();
 
 		if (this.model.text.replace(/\s*/g, "") === "") this.remove();
 	};
@@ -1309,6 +1321,8 @@ var ModelTest = (function() {
 			height: cursorRenderingInfo.h
 		});
 
+		if (this.model.focus) this.blinkStart();
+
 		this.fire("update", this);
 	};
 
@@ -1327,11 +1341,36 @@ var ModelTest = (function() {
 	};
 
 	NoteViewTextbox.prototype.convertLineToHTML = function(line) {
-		return line
-			.replace(/\t/g, "[tab]")
+		var pattern = "<span class='{indentClass}'>{indent}</span><span class='{class}'>{body}</span>",
+			indentClasses = ["NoteViewTextbox-scope-indent"],
+			classes = ["NoteViewTextbox-scope"];
+
+		var parts = line.match(/^(\t*)(.*)$/, ""),
+			indent = parts[1],
+			body = parts[2];
+
+		var escapedIndent = indent
+			.replace(/\t/g, "---→");
+
+		if (body[0] === "#") {
+			var headerLevel = indent.length + 1;
+			if (headerLevel > 6) headerLevel = 6;
+			classes.push("NoteViewTextbox-scope-header" + headerLevel);
+		}
+		if (body[0] === "-") classes.push("NoteViewTextbox-scope-list");
+
+		var escapedBody = body
+			.replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;")
+			.replace(/^\-/, "")
 			.replace(/</g, "&lt;")
 			.replace(/>/g, "&gt;")
-			.replace(/ /g, "[space]");
+			.replace(/ /g, "&nbsp;");
+
+		return pattern
+			.replace("{indentClass}", indentClasses.join(" "))
+			.replace("{indent}", escapedIndent)
+			.replace("{class}", classes.join(" "))
+			.replace("{body}", escapedBody);
 	};
 
 	NoteViewTextbox.prototype.getCursorRenderingInfo = function() {
@@ -1341,23 +1380,88 @@ var ModelTest = (function() {
 			x, y, h;
 
 		//y位置は対応する行要素のoffsetTop
-		var line = this.__$textLayer.find(".NoteViewTextbox-line")[rows - 1];
-		y = line.offsetTop;
+		var lineElement = this.__$textLayer.find(".NoteViewTextbox-line")[rows - 1];
+		y = lineElement.offsetTop;
 
 		//x位置は必要文字数分のhtmlを実際にダミーDOMに流し込んで横幅を測定
 		//hはダミーDOMの高さ
-		var html = this.convertLineToHTML(lines[rows - 1]);
-		this.__$dummyLine.html(html);
+		var line = lines[rows - 1],
+			html = this.convertLineToHTML(line),
+			lineElementWidth = parseInt(getComputedStyle(lineElement).width),
+			lineElementLineHeight = this.__$dummyLine.css("height"),
+			gcr;
 
-		var gcr = this.__$dummyLine[0].getBoundingClientRect();
+		this.__$dummyLine.html(html);
+		gcr = this.__$dummyLine[0].getBoundingClientRect();
+
+		//もし、ダミーDOMのwidthが実際のlineElementのwidthより長い場合、折り返しが発生している
+		while (gcr.width > lineElementWidth) {
+			var realLine = "";
+
+			//1行下に下げる
+			y += lineElementLineHeight;
+
+			while (gcr.width > lineElementWidth) {
+				//うまくいくまで末尾の1文字を削る
+				realLine += line.substr(-1);
+				line = line.slice(0, line.length - 1);
+				html = this.convertLineToHTML(line);
+				this.__$dummyLine.html(html);
+				gcr = this.__$dummyLine[0].getBoundingClientRect();
+			}
+
+			line = realLine;
+			html = this.convertLineToHTML(line);
+			this.__$dummyLine.html(html);
+			gcr = this.__$dummyLine[0].getBoundingClientRect();
+		}
+
 		x = gcr.width;
-		h = parseInt(getComputedStyle(line).lineHeight);
+
+		var scopeElement
+		if (lines[rows - 1] === "") {
+			scopeElement = null;
+		} else if ((/^\t*$/).test(lines[rows - 1])) {
+			scopeElement = lineElement.children[1];
+		} else {
+			scopeElement = this.__$dummyLine[0].lastChild;
+		}
+
+		if (scopeElement) {
+			y += scopeElement.offsetTop;
+			h = parseInt(getComputedStyle(scopeElement).height) || "";
+		} else {
+			h = "";
+		}
 
 		return {
 			x: x,
 			y: y,
 			h: h
 		}
+	};
+
+	NoteViewTextbox.prototype.blinkStart = function() {
+		if (this.__blinkTimerID) {
+			clearInterval(this.__blinkTimerID);
+		}
+
+		this.__$cursor.addClass("-show");
+
+		this.__blinkTimerID = setInterval(function() {
+			this.blink();
+		}.bind(this), 500);
+	};
+
+	NoteViewTextbox.prototype.blinkStop = function() {
+		this.__$cursor.addClass("-show");
+
+		clearInterval(this.__blinkTimerID);
+		this.__blinkTimerID = null;
+	};
+
+	NoteViewTextbox.prototype.blink = function() {
+		this.__$cursor.toggleClass("-show");
 	};
 
 	return NoteViewTextbox;
@@ -1440,9 +1544,9 @@ var ModelTest = (function() {
 			"enter": this.__inputEnter,
 			"left": this.__inputSelectionLeft,
 			"right": this.__inputSelectionRight,
+			"up": this.__inputSelectionUp,
+			"down": this.__inputSelectionDown,
 
-			"up": this.__inputSelectionMove,
-			"down": this.__inputSelectionMove,
 			"shift+up": this.__inputSelectionMove,
 			"shift+down": this.__inputSelectionMove,
 			"shift+left": this.__inputSelectionMove,
@@ -1540,6 +1644,27 @@ var ModelTest = (function() {
 		this.fire("input");
 		// ev.preventDefault();
 	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionDown = function(ev) {
+		this.syncSelectionRange();
+		if (this.selectionStart < this.__$base[0].value.length) {
+			this.selectionStart++;
+			this.selectionEnd++;
+		}
+		this.fire("input");
+		// ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionUp = function(ev) {
+		this.syncSelectionRange();
+		if (this.selectionStart > 0) {
+			this.selectionStart--;
+			this.selectionEnd--;
+		}
+		this.fire("input");
+		// ev.preventDefault();
+	};
+
 
 	NoteViewInputReceiver.prototype.__blurTextArea = function(ev) {
 		this.lostFocus();
@@ -1826,9 +1951,11 @@ var NoteView = (function() {
 
 	function NewFileDialogView() {
 		this.super();
-		this.title("新規ファイル名を入力");
+		this.title("新規ファイルを作成");
 
 		this.__$input = "";
+
+		this.__$body.append($("<span>編集中のノートは失われてしまいます。よろしいですか？</span>"));
 	}
 	extendClass(NewFileDialogView, DialogView);
 

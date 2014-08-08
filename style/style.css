@@ -212,10 +212,10 @@ h6.Markdown-header {
 }
 .NoteViewTextbox-base.-drag {
   cursor: move;
-  background: rgba(77, 208, 225, 0.5);
+  background: rgba(77, 208, 225, 0.3);
 }
 .NoteViewTextbox-base.-edit {
-  background: rgba(255, 213, 79, 0.5);
+  background: rgba(255, 213, 79, 0.3);
 }
 .NoteViewTextbox-resizeHandle {
   display: block;
@@ -255,7 +255,41 @@ h6.Markdown-header {
   color: #212121;
   font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
   font-size: 14px;
-  line-height: 1.5em;
+}
+.NoteViewTextbox-scope {
+  display: inline-block;
+  max-width: 100%;
+  word-wrap: break-word;
+  vertical-align: middle;
+}
+.NoteViewTextbox-scope-header1 {
+  margin: 10px 0;
+  color: #26c6da;
+  font-size: 3em;
+  font-weight: bold;
+}
+.NoteViewTextbox-scope-header2 {
+  margin: 10px 0 10px -20px;
+  padding-left: 15px;
+  border-left: 5px solid #26c6da;
+  font-size: 1.8em;
+}
+.NoteViewTextbox-scope-indent {
+  color: transparent;
+}
+.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-indent {
+  color: #bdbdbd;
+}
+.NoteViewTextbox-scope-list {
+  padding-left: 20px;
+}
+.NoteViewTextbox-scope-list:before {
+  display: inline-block;
+  position: relative;
+  width: 20px;
+  margin-left: -20px;
+  content: "・";
+  font-weight: bold;
 }
 .NoteViewTextbox-cursorLayer {
   display: block;
@@ -272,16 +306,21 @@ h6.Markdown-header {
   box-sizing: border-box;
 }
 .NoteViewTextbox-cursor {
-  display: block;
+  display: none;
   position: absolute;
   top: 0;
   left: 0;
-  width: 1px;
-  height: 0;
+  width: 2px;
+  height: 16px;
   background: #212121;
+  vertical-align: middle;
+}
+.NoteViewTextbox-cursor.-show {
+  display: block;
 }
 .NoteViewTextbox-dummyLine {
   display: inline-block;
+  white-space: nowrap;
   opacity: 0;
 }
 .NoteViewInputReceiver-base {
@@ -314,7 +353,6 @@ h6.Markdown-header {
   position: relative;
   flex-grow: 0;
   flex-direction: column;
-  min-width: 600px;
   background: #ffffff;
   box-shadow: 0 10px 60px rgba(0, 0, 0, 0.1);
   border: 2px solid #455ede;

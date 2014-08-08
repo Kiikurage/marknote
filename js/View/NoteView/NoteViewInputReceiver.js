@@ -16,9 +16,9 @@ var NoteViewInputReceiver = (function() {
 			"enter": this.__inputEnter,
 			"left": this.__inputSelectionLeft,
 			"right": this.__inputSelectionRight,
+			"up": this.__inputSelectionUp,
+			"down": this.__inputSelectionDown,
 
-			"up": this.__inputSelectionMove,
-			"down": this.__inputSelectionMove,
 			"shift+up": this.__inputSelectionMove,
 			"shift+down": this.__inputSelectionMove,
 			"shift+left": this.__inputSelectionMove,
@@ -116,6 +116,27 @@ var NoteViewInputReceiver = (function() {
 		this.fire("input");
 		// ev.preventDefault();
 	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionDown = function(ev) {
+		this.syncSelectionRange();
+		if (this.selectionStart < this.__$base[0].value.length) {
+			this.selectionStart++;
+			this.selectionEnd++;
+		}
+		this.fire("input");
+		// ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionUp = function(ev) {
+		this.syncSelectionRange();
+		if (this.selectionStart > 0) {
+			this.selectionStart--;
+			this.selectionEnd--;
+		}
+		this.fire("input");
+		// ev.preventDefault();
+	};
+
 
 	NoteViewInputReceiver.prototype.__blurTextArea = function(ev) {
 		this.lostFocus();

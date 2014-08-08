@@ -23,7 +23,14 @@
 
 			} else if (arguments.length === 1) {
 
-				return getComputedStyle(this[0])[key];
+				var val = getComputedStyle(this[0])[key],
+					valAsNumber = parseFloat(val);
+
+				if (val !== NaN) {
+					return valAsNumber
+				} else {
+					return val
+				}
 
 			} else {
 
