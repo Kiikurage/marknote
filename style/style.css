@@ -228,7 +228,7 @@ h6.Markdown-header {
   bottom: 0;
   width: 10px;
   cursor: e-resize;
-  z-index: 65534;
+  z-index: 65535;
 }
 .NoteViewTextbox-renderingLayer {
   display: block;
@@ -299,9 +299,12 @@ kbd {
 }
 .NoteViewTextbox-scope-indent {
   color: transparent;
+  width: 4em;
+  height: 1px;
 }
 .NoteViewTextbox-base.-edit .NoteViewTextbox-scope-indent {
   color: #bdbdbd;
+  background: #bdbdbd;
 }
 .NoteViewTextbox-scope-list {
   padding-left: 14px;

@@ -38,7 +38,7 @@
 	width: 10px;
 
 	cursor: e-resize;
-	z-index: 65534;
+	z-index: 65535;
 }
 
 .NoteViewTextbox-renderingLayer {
@@ -126,9 +126,12 @@ kbd {
 
 .NoteViewTextbox-scope-indent {
 	color: transparent;
+	width: 4em;
+	height: 1px;
 }
 .NoteViewTextbox-base.-edit .NoteViewTextbox-scope-indent {
 	color: @Grey400;
+	background: @Grey400;
 }
 
 .NoteViewTextbox-scope-list {

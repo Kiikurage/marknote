@@ -200,8 +200,8 @@ var NoteViewTextbox = (function() {
 			res = "";
 
 
-		if (indent !== "") {
-			res += wrapTextByScope(indent, []);
+		for (var i = 0, max = indent.length; i < max; i++) {
+			res += wrapTextByScope("\t", ["NoteViewTextbox-scope-indent"]);
 		}
 
 		if (body[0] === "#") {
@@ -231,6 +231,9 @@ var NoteViewTextbox = (function() {
 			.replace("{body}", escaped);
 	};
 
+	/*-------------------------------------------------
+	 * cursor
+	 */
 	NoteViewTextbox.prototype.getCursorIndex = function() {
 		var NODETYPE_TEXTNODE = 3,
 			selection = document.getSelection(),
