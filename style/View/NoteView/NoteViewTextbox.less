@@ -4,24 +4,28 @@
 	display: block;
 	position: absolute;
 
-	padding: 30px;
+	padding: 0;
 	margin: 0;
 
 	border-radius: 3px;
-	// background: fade(@Red300, 50);
+	border: 1px solid transparent;
+	background: transparent;
 
 	transition: background 0.2s ease;
+	cursor: default;
 
 	&:hover,
 	&.-hover {
-		background: fade(@Grey100, 50);
+		background: fade(@Grey300, 10);
+		// border-color: @Grey300;
 	}
 	&.-drag {
 		cursor: move;
 		background: fade(@Cyan300, 30);
 	}
 	&.-edit {
-		background: fade(@Amber300, 30);
+		background: fade(@Amber300, 10);
+		// border-color: @Grey300;
 	}
 }
 .NoteViewTextbox-resizeHandle {
@@ -37,33 +41,41 @@
 	z-index: 65534;
 }
 
-.NoteViewTextbox-layer() {
+.NoteViewTextbox-renderingLayer {
 	display: block;
-	position: absolute;
-
-	top: 30px;
-	left: 30px;
-	right: 30px;
-	bottom: 30px;
-
-	padding: 0;
-	margin: 0;
-
-	border: none;
-	background: none;
-
-	outline: none;
-	box-sizing: border-box;
-}
-.NoteViewTextbox-textLayer {
-	.NoteViewTextbox-layer();
 	position: relative;
+
 	top: 0;
 	left: 0;
 	right: 0;
 	bottom: 0;
+
+	padding: 10px;
+
+	color: @Grey900;
+	font-family: Osaka-mono, "MS Gothic", monospace;
+	font-size: 14px;
+	line-height: 1.2;
 }
-.NoteViewTextbox-dummyLine,
+.NoteViewTextbox-editLayer {
+	display: block;
+	position: absolute;
+
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+
+	padding: 10px;
+
+	color: @Grey900;
+	font-family: Osaka-mono, "MS Gothic", monospace;
+	font-size: 14px;
+	line-height: 1.2;
+
+	outline: none;
+	z-index: 65534;
+}
 .NoteViewTextbox-line,
 kbd {
 	display: block;
@@ -81,7 +93,7 @@ kbd {
 	display: inline-block;
 
 	max-width: 100%;
-	margin: 5px 0;
+	margin: 0;
 	padding: 0;
 
 	word-wrap: break-word; 
@@ -89,7 +101,7 @@ kbd {
 	vertical-align: middle;
 }
 .NoteViewTextbox-scope-header1 {
-	margin: 10px 0;
+	margin: 0 0 20px 0;
 
 	color: @Cyan400;
 	font-size: 3em;
@@ -114,7 +126,6 @@ kbd {
 
 .NoteViewTextbox-scope-indent {
 	color: transparent;
-	border-right: 1px solid transparent;
 }
 .NoteViewTextbox-base.-edit .NoteViewTextbox-scope-indent {
 	color: @Grey400;
@@ -138,36 +149,4 @@ kbd {
 
 		vertical-align: middle;
 	}
-}
-
-.NoteViewTextbox-cursorLayer {
-	.NoteViewTextbox-layer();
-}
-.NoteViewTextbox-cursor {
-	display: none;
-	position: absolute;
-
-	top: 0;
-	left: 0;
-	width: 2px;
-	height: 16px;
-
-	background: @Grey900;
-
-	vertical-align: middle;
-
-	&.-show {
-		display: block;
-	}
-}
-.NoteViewTextbox-dummyLine {
-	display: inline-block;
-
-	white-space: nowrap;
-
-	opacity: 0;
-
-	// /* Debug Only */
-	// opacity: 0.5;
-	// background: @Red500;
 }

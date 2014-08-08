@@ -14,7 +14,6 @@ var NoteViewTextboxModel = (function() {
 	NoteViewTextboxModel.__record("z");
 	NoteViewTextboxModel.__record("w");
 	NoteViewTextboxModel.__record("text");
-	NoteViewTextboxModel.__record("focus");
 
 	NoteViewTextboxModel.prototype.__receiverInput = function() {
 		this.text = this.__receiver.getValue();
