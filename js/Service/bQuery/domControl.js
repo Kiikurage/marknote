@@ -44,6 +44,9 @@
 		},
 		children: function() {
 			return $().merge(this[0].children);
+		},
+		childNodes: function() {
+			return $().merge(this[0].childNodes);
 		}
 	});
 }());

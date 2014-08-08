@@ -11,6 +11,7 @@ var sample = '{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array",
 //#include("/View/NoteView.js");
 //#include("/View/AlertView.js");
 //#include("/View/NewFileDialogView.js");
+//#include("/Service/KeyRecognizer.js");
 
 var app = (function() {
 
@@ -94,8 +95,6 @@ var app = (function() {
 	};
 
 	app.saveFile = function(ev) {
-		app.noteView.receiver.lostFocus();
-
 		app.noteView.model.save("test");
 		app.alertView.show("保存しました");
 		if (ev) ev.preventDefault();
