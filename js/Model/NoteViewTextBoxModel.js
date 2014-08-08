@@ -4,7 +4,7 @@ var NoteViewTextboxModel = (function() {
 	function NoteViewTextboxModel() {
 		this._text = "";
 		this.__receiver = null;
-		this._w = 300;
+		this._w = 400;
 		this._z = 0;
 	}
 	extendClass(NoteViewTextboxModel, Model);

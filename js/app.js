@@ -1,9 +1,8 @@
 /*
 test data
-
-{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array","value":[{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":0},"_text":{"type":"native","value":"#Marknote\nマークダウンで手軽に綺麗にノートをとれるウェブアプリ\n===\nver. 0.1.1\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":160},"_text":{"type":"native","value":"\t#実装済みの機能\n\t-テキストエディット(カーソルが表示されない)\n\t\t-対応しているmarkdown記法\n\t\t\t-#ヘッダ\n\t\t\t--箇条書き\n\t-テキストボックスの再配置\n\t-セーブ/ロード\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":560},"_y":{"type":"native","value":320},"_text":{"type":"native","value":"\t#プロジェクトの情報\n-開発者 きくらげ(twitter: @mr_temperman)\n-\tgithub https://github.com/kikura-yuichiro/marknote"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":530},"_y":{"type":"native","value":330},"_text":{"type":"native","value":" "},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":560},"_y":{"type":"native","value":0},"_text":{"type":"native","value":"\t#使い方\n\t普通にノートが取れる。\n\t\n\t文頭に以下の記号を用いると特殊なスタイルに変換される\n\t-# ヘッダ\n\t\t-ヘッダは#1コしか認識しない\n\t\t-ヘッダのレベルはタブインデントにより制御する\n\t-- 箇条書き\n\t\t-こちらも同じくタブインデントでレベルを制御"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":420},"_text":{"type":"native","value":"\t#今後つくろうと思っている機能\n\t-markdown記法の拡張\n\t\t-(画像)[url]による画像の挿入\n\t\t-表組み機能\t\n\t\t\t-表組みはmarkdownとしてではなく実装したい\n\t\n\t-Export機能\n\t\t-PDF/HTML/MD\n\t-ブック管理機能\n\t"},"_focus":{"type":"native","value":false}}}]}}}
-
 */
+var sample = '{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array","value":[{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":0},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"#Marknote\\nマークダウンで手軽に綺麗にノートをとれるウェブアプリ\\n===\\nver. 0.1.1\\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":120},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#実装済みの機能\\n\\t-テキストエディット\\n\\t\\t-対応しているmarkdown記法\\n\\t\\t\\t-#ヘッダ\\n\\t\\t\\t\\tヘッダは#1個のみ。\\n\\t\\t\\t\\tインデントのレベルでヘッダレベルを調整\\n\\t\\t\\t--箇条書き\\n\\t-テキストボックスの再配置\\n\\t-セーブ/ロード\\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":580},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#プロジェクトの情報\\n-開発者 きくらげ(twitter: @mr_temperman)\\n-\\tgithub https://github.com/kikura-yuichiro/marknote"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":360},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#今後つくろうと思っている機能\\n\\t-markdown記法の拡張\\n\\t\\t-(画像)[url]による画像の挿入\\n\\t\\t-表組み機能\\t\\n\\t\\t\\t-表組みはmarkdownとしてではなく実装したい\\n\\t\\n\\t-Export機能\\n\\t\\t-PDF/HTML/MD\\n\\t-ブック管理機能\\n\\t"},"_focus":{"type":"native","value":false}}}]}}}';
+
 
 //#include("/View/ToolbarView.js");
 //#include("/View/TabView.js");
@@ -78,9 +77,24 @@ var app = (function() {
 		var alertView = new AlertView();
 		alertView.appendTo($("body"));
 		app.alertView = alertView;
+
+
+
+		var savedata = Model.load("test");
+
+		if (savedata) {
+			app.noteView.bindModel(savedata);
+			app.alertView.show("読み込みました");
+		} else {
+			savedata = Model.convertFromNativeObject(JSON.parse(sample));
+			app.noteView.bindModel(savedata);
+		}
+
 	};
 
 	app.saveFile = function(ev) {
+		app.noteView.receiver.lostFocus();
+
 		app.noteView.model.save("test");
 		app.alertView.show("保存しました");
 		if (ev) ev.preventDefault();
@@ -88,6 +102,7 @@ var app = (function() {
 
 	app.openFile = function(ev) {
 		var savedata = Model.load("test");
+
 		if (!savedata) {
 			app.alertView.showError("セーブデータが存在しません");
 			return;
@@ -101,7 +116,7 @@ var app = (function() {
 	app.newFile = function(ev) {
 		var dialog = new NewFileDialogView()
 		dialog.appendTo($("body"));
-		dialog.bind("success", app.createNewFile, app);
+		dialog.one("success", app.createNewFile, app);
 		dialog.fadeIn();
 	};
 
@@ -125,7 +140,7 @@ var app = (function() {
 	app.toggleSideMenu = function(ev) {
 		var sideMenu = app.sideMenu;
 
-		if (sideMenu.__$base.css("marginLeft") === "-200px") {
+		if (sideMenu.__$base.css("marginLeft") === -200) {
 			sideMenu.__$base.animate(function(x) {
 				this.css("marginLeft", -200 * (1 - x * x) + "px");
 			}, 100);

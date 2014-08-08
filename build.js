@@ -412,7 +412,14 @@
 
 			} else if (arguments.length === 1) {
 
-				return getComputedStyle(this[0])[key];
+				var val = getComputedStyle(this[0])[key],
+					valAsNumber = parseFloat(val);
+
+				if (val !== NaN) {
+					return valAsNumber
+				} else {
+					return val
+				}
 
 			} else {
 
@@ -1125,7 +1132,7 @@ var ModelTest = (function() {
 	function NoteViewTextboxModel() {
 		this._text = "";
 		this.__receiver = null;
-		this._w = 300;
+		this._w = 400;
 		this._z = 0;
 	}
 	extendClass(NoteViewTextboxModel, Model);
@@ -1161,6 +1168,12 @@ var ModelTest = (function() {
 
 		this.__$cursorLayer = $("<div class='NoteViewTextbox-cursorLayer'></div>")
 		this.__$cursorLayer.appendTo(this.__$base);
+
+		this.__$cursor = $("<div class='NoteViewTextbox-cursor'></div>");
+		this.__$cursor.appendTo(this.__$cursorLayer);
+
+		this.__$dummyLine = $("<div class='NoteViewTextbox-dummyLine'></div>");
+		this.__$dummyLine.appendTo(this.__$cursorLayer);
 
 		this.__receiver = receiver;
 	}
@@ -1264,6 +1277,9 @@ var ModelTest = (function() {
 		receiver.bind("blur", this.lostFocus, this);
 		receiver.bind("input", this.model.__receiverInput, this.model);
 		receiver.setValue(this.model.text);
+		receiver.renderingView = this;
+
+		this.__$cursor.css("display", "");
 
 		receiver.setFocus();
 	};
@@ -1274,6 +1290,10 @@ var ModelTest = (function() {
 		var receiver = this.__receiver;
 		receiver.unbind("blur", this.lostFocus, this);
 		receiver.unbind("input", this.model.__receiverInput, this.model);
+		receiver.renderingView = null;
+
+		this.__$cursor.css("display", "none");
+		this.blinkStop();
 
 		if (this.model.text.replace(/\s*/g, "") === "") this.remove();
 	};
@@ -1284,7 +1304,8 @@ var ModelTest = (function() {
 	NoteViewTextbox.prototype.update = function() {
 		var model = this.model,
 			text = model.text,
-			html = Markdown.parse(text);
+			// html = Markdown.parse(text);
+			html = this.convertTextToHTML(text);
 
 		this.__$base.toggleClass("-edit", model.focus);
 		this.__$textLayer.html(html);
@@ -1295,8 +1316,240 @@ var ModelTest = (function() {
 			zIndex: model.z
 		});
 
+		var cursorRenderingInfo = this.getCursorRenderingInfo();
+		this.__$cursor.css({
+			left: cursorRenderingInfo.x,
+			top: cursorRenderingInfo.y,
+			height: cursorRenderingInfo.h
+		});
+
+		if (this.model.focus) this.blinkStart();
+
 		this.fire("update", this);
-		console.log(this.__receiver.selectionStart, this.__receiver.selectionEnd)
+	};
+
+	NoteViewTextbox.prototype.convertTextToHTML = function(text) {
+		var html = "",
+			lines = text.split("\n");
+
+		for (var i = 0, max = lines.length; i < max; i++) {
+			html +=
+				"<p class='NoteViewTextbox-line'>" +
+				this.convertLineToHTML(lines[i]) +
+				"</p>";
+		}
+
+		return html;
+	};
+
+	NoteViewTextbox.prototype.convertLineToHTML = function(line) {
+		var pattern = "<span class='{indentClass}'>{indent}</span><span class='{class}'>{body}</span>",
+			indentClasses = ["NoteViewTextbox-scope", "NoteViewTextbox-scope-indent"],
+			classes = ["NoteViewTextbox-scope"];
+
+		var parts = line.match(/^(\t*)(.*)$/, ""),
+			indent = parts[1],
+			body = parts[2];
+
+		var escapedIndent = indent
+			.replace(/\t/g, "---&gt;");
+
+		if (body[0] === "#") {
+			var headerLevel = indent.length + 1;
+			if (headerLevel > 6) headerLevel = 6;
+			classes.push("NoteViewTextbox-scope-header" + headerLevel);
+		}
+		if (body[0] === "-") classes.push("NoteViewTextbox-scope-list");
+		if (/^={3,}.*$/.test(body)) classes.push("NoteViewTextbox-scope-hr");
+
+		var escapedBody = body
+			.replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;")
+			.replace(/^\-/, "")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/ /g, "&nbsp;");
+
+		return pattern
+			.replace("{indentClass}", indentClasses.join(" "))
+			.replace("{indent}", escapedIndent)
+			.replace("{class}", classes.join(" "))
+			.replace("{body}", escapedBody);
+	};
+
+	NoteViewTextbox.prototype.getCursorRenderingInfo = function() {
+		var text = this.model.text.slice(0, this.__receiver.selectionStart),
+			lines = text.split("\n"),
+			rows = lines.length,
+			x, y, h;
+
+		//y位置は対応する行要素のoffsetTop
+		var lineElement = this.__$textLayer.find(".NoteViewTextbox-line")[rows - 1];
+		y = lineElement.offsetTop;
+
+		//x位置は必要文字数分のhtmlを実際にダミーDOMに流し込んで横幅を測定
+		//hはダミーDOMの高さ
+		var line = lines[rows - 1],
+			html = this.convertLineToHTML(line);
+
+		this.__$dummyLine.html(html);
+
+		var lineElementWidth = parseInt(getComputedStyle(lineElement).width),
+			lineElementLineHeight = this.__$dummyLine.css("height"),
+			gcr;
+
+		gcr = this.__$dummyLine[0].getBoundingClientRect();
+
+		//もし、ダミーDOMのwidthが実際のlineElementのwidthより長い場合、折り返しが発生している
+		while (gcr.width > lineElementWidth) {
+			var realLine = "";
+
+			//1行下に下げる
+			y += lineElementLineHeight;
+
+			while (gcr.width > lineElementWidth) {
+				//うまくいくまで末尾の1文字を削る
+				realLine += line.substr(-1);
+				line = line.slice(0, line.length - 1);
+				html = this.convertLineToHTML(line);
+				this.__$dummyLine.html(html);
+				gcr = this.__$dummyLine[0].getBoundingClientRect();
+			}
+
+			line = realLine;
+			html = this.convertLineToHTML(line);
+			this.__$dummyLine.html(html);
+			gcr = this.__$dummyLine[0].getBoundingClientRect();
+		}
+
+		x = gcr.width;
+
+		//高さ
+		var scopeElement
+		if (lines[rows - 1] === "") {
+			scopeElement = null;
+		} else if ((/^\t*$/).test(lines[rows - 1])) {
+			scopeElement = lineElement.children[1];
+		} else {
+			scopeElement = this.__$dummyLine[0].lastChild;
+		}
+
+		if (scopeElement) {
+			y += scopeElement.offsetTop;
+			h = parseInt(getComputedStyle(scopeElement).height) || "";
+		} else {
+			h = "";
+		}
+
+		return {
+			x: x,
+			y: y,
+			h: h
+		}
+	};
+
+	//指定された座標が論理行で何行目何文字目かを返す
+	NoteViewTextbox.prototype.getRenderingPositionInfo = function(x, y) {
+		var lines = this.model.text.split("\n"),
+			lineElements = this.__$textLayer.children(),
+			row = 0;
+
+		for (var max = lineElements.length; row < max; row++) {
+			if (lineElements[row].offsetTop > y) break
+		}
+		row--;
+
+		//範囲外
+		if (row < 0 || row >= lines.length) {
+			return {
+				row: row,
+				column: -1
+			};
+		}
+
+		var line = lines[row],
+			html = this.convertLineToHTML(line),
+			column = 0,
+			lineElement = lineElements[row],
+			lineElementWidth = parseInt(getComputedStyle(lineElement).width),
+			lineElementLineHeight = this.__$dummyLine.css("height"),
+			gcr;
+
+		//仮想行の折り返しが生じていないかを確認
+		this.__$dummyLine.html(html);
+		gcr = this.__$dummyLine[0].getBoundingClientRect();
+		while (true) {
+			if (gcr.width > lineElementWidth) {
+
+				//指定座標が、折り返しより後にあるのかを確認
+				if (lineElement.offsetTop + lineElementLineHeight > y) break
+
+				var realLine = "";
+
+				while (gcr.width > lineElementWidth) {
+					//うまくいくまで末尾の1文字を削る
+					realLine += line.substr(-1);
+					line = line.slice(0, line.length - 1);
+					html = this.convertLineToHTML(line);
+					this.__$dummyLine.html(html);
+					gcr = this.__$dummyLine[0].getBoundingClientRect();
+				}
+
+				column += line.length;
+				line = realLine;
+				html = this.convertLineToHTML(line);
+				this.__$dummyLine.html(html);
+				gcr = this.__$dummyLine[0].getBoundingClientRect();
+
+			} else {
+				break;
+			}
+		}
+
+		//dummtに1文字ずつ入れていき、指定位置を超えたらそこが指定された座標に対応する文字の位置
+		var offset = 0;
+
+		html = this.convertLineToHTML(line.slice(0, offset));
+		this.__$dummyLine.html(html);
+		gcr = this.__$dummyLine[0].getBoundingClientRect();
+
+		while (gcr.width < x) {
+			offset++;
+			html = this.convertLineToHTML(line.slice(0, offset));
+			this.__$dummyLine.html(html);
+			gcr = this.__$dummyLine[0].getBoundingClientRect();
+
+			if (offset >= line.length) break;
+		}
+
+		column += offset;
+
+		return {
+			row: row,
+			column: column
+		};
+	};
+
+	NoteViewTextbox.prototype.blinkStart = function() {
+		if (this.__blinkTimerID) {
+			clearInterval(this.__blinkTimerID);
+		}
+
+		this.__$cursor.addClass("-show");
+
+		this.__blinkTimerID = setInterval(function() {
+			this.blink();
+		}.bind(this), 500);
+	};
+
+	NoteViewTextbox.prototype.blinkStop = function() {
+		this.__$cursor.addClass("-show");
+
+		clearInterval(this.__blinkTimerID);
+		this.__blinkTimerID = null;
+	};
+
+	NoteViewTextbox.prototype.blink = function() {
+		this.__$cursor.toggleClass("-show");
 	};
 
 	return NoteViewTextbox;
@@ -1377,23 +1630,27 @@ var ModelTest = (function() {
 			"shift+tab": this.__inputDeleteTab,
 			"tab": this.__inputTab,
 			"enter": this.__inputEnter,
-			"up": this.__inputSelectionMove,
-			"down": this.__inputSelectionMove,
-			"left": this.__inputSelectionMove,
-			"right": this.__inputSelectionMove,
+			"left": this.__inputSelectionLeft,
+			"right": this.__inputSelectionRight,
+			"cmd+up": this.__inputSelectionJumpHead,
+			"cmd+down": this.__inputSelectionJumpLast,
+
+			"up": this.__inputSelectionUp,
+			"down": this.__inputSelectionDown,
+
 			"shift+up": this.__inputSelectionMove,
 			"shift+down": this.__inputSelectionMove,
 			"shift+left": this.__inputSelectionMove,
 			"shift+right": this.__inputSelectionMove,
-			"cmd+up": this.__inputSelectionMove,
-			"cmd+down": this.__inputSelectionMove,
 			"cmd+left": this.__inputSelectionMove,
 			"cmd+right": this.__inputSelectionMove
 		}, this);
 		this.__kr.listen(this.__$base);
 
-		this.selectionStart = -1;
-		this.selectionEnd = -1;
+		this.selectionStart = 0;
+		this.selectionEnd = 0;
+
+		this.renderingView = null;
 	}
 	IPubSub.implement(NoteViewInputReceiver.prototype);
 
@@ -1459,6 +1716,62 @@ var ModelTest = (function() {
 		// ev.preventDefault();
 	};
 
+	NoteViewInputReceiver.prototype.__inputSelectionRight = function(ev) {
+		if (this.selectionStart < this.__$base[0].value.length) {
+			this.selectionStart++;
+			this.selectionEnd++;
+		}
+		this.syncSelectionRange(true);
+		this.fire("input");
+		ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionLeft = function(ev) {
+		if (this.selectionStart > 0) {
+			this.selectionStart--;
+			this.selectionEnd--;
+		}
+		this.syncSelectionRange(true);
+		this.fire("input");
+		ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionDown = function(ev) {
+		var cursorInfo = this.renderingView.getCursorRenderingInfo(),
+			info = this.renderingView.getRenderingPositionInfo(cursorInfo.x, cursorInfo.y + cursorInfo.h + 10);
+
+		this.setSelectionRangeByRowColumn(info.row, info.column);
+		this.fire("input");
+		ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionUp = function(ev) {
+		var cursorInfo = this.renderingView.getCursorRenderingInfo(),
+			info = this.renderingView.getRenderingPositionInfo(cursorInfo.x, cursorInfo.y - 10);
+
+		this.setSelectionRangeByRowColumn(info.row, info.column);
+		this.fire("input");
+		ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionJumpHead = function(ev) {
+		this.selectionStart = 0;
+		this.selectionEnd = 0;
+
+		this.syncSelectionRange(true);
+		this.fire("input");
+		ev.preventDefault();
+	};
+
+	NoteViewInputReceiver.prototype.__inputSelectionJumpLast = function(ev) {
+		this.selectionStart = this.__$base.val().length;
+		this.selectionEnd = this.__$base.val().length;
+
+		this.syncSelectionRange(true);
+		this.fire("input");
+		ev.preventDefault();
+	};
+
 	NoteViewInputReceiver.prototype.__blurTextArea = function(ev) {
 		this.lostFocus();
 	};
@@ -1490,6 +1803,10 @@ var ModelTest = (function() {
 	 * Selection Range
 	 */
 	NoteViewInputReceiver.prototype.syncSelectionRange = function(start, end) {
+		if (start === true) {
+			return this.syncSelectionRange(this.selectionStart, this.selectionEnd);
+		}
+
 		if (start !== undefined) {
 			this.__$base[0].selectionStart = start;
 		}
@@ -1499,6 +1816,45 @@ var ModelTest = (function() {
 
 		this.selectionStart = this.__$base[0].selectionStart;
 		this.selectionEnd = this.__$base[0].selectionEnd;
+	};
+
+	NoteViewInputReceiver.prototype.convertRowColumnToIndex = function(row, column) {
+		var lines = this.__$base.val().split("\n");
+		if (row >= lines.length) {
+			row = lines.length - 1;
+		}
+		if (row < 0) {
+			row = 0;
+		}
+
+		var line = lines[row];
+		if (column > line.length) {
+			column = line.length;
+		}
+		if (column < 0) {
+			column = 0;
+		}
+
+		var index = 0;
+		for (var i = 0, max = row; i < max; i++) {
+			index += lines[i].length + 1 //+1は改行コードの分
+		}
+		index += column;
+
+		return index;
+	}
+
+	NoteViewInputReceiver.prototype.setSelectionRangeByRowColumn = function(startR, startC, endR, endC) {
+		var start = this.convertRowColumnToIndex(startR, startC),
+			end;
+
+		if (arguments.length === 2) {
+			end = this.convertRowColumnToIndex(startR, startC);
+		} else {
+			end = this.convertRowColumnToIndex(endR, endC);
+		}
+
+		return this.syncSelectionRange(start, end);
 	};
 
 	return NoteViewInputReceiver;
@@ -1744,9 +2100,11 @@ var NoteView = (function() {
 
 	function NewFileDialogView() {
 		this.super();
-		this.title("新規ファイル名を入力");
+		this.title("新規ファイルを作成");
 
 		this.__$input = "";
+
+		this.__$body.append($("<span>編集中のノートは失われてしまいます。よろしいですか？</span>"));
 	}
 	extendClass(NewFileDialogView, DialogView);
 
@@ -1754,10 +2112,9 @@ var NoteView = (function() {
 }());
 ;/*
 test data
-
-{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array","value":[{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":0},"_text":{"type":"native","value":"#Marknote\nマークダウンで手軽に綺麗にノートをとれるウェブアプリ\n===\nver. 0.1.1\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":160},"_text":{"type":"native","value":"\t#実装済みの機能\n\t-テキストエディット(カーソルが表示されない)\n\t\t-対応しているmarkdown記法\n\t\t\t-#ヘッダ\n\t\t\t--箇条書き\n\t-テキストボックスの再配置\n\t-セーブ/ロード\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":560},"_y":{"type":"native","value":320},"_text":{"type":"native","value":"\t#プロジェクトの情報\n-開発者 きくらげ(twitter: @mr_temperman)\n-\tgithub https://github.com/kikura-yuichiro/marknote"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":530},"_y":{"type":"native","value":330},"_text":{"type":"native","value":" "},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":560},"_y":{"type":"native","value":0},"_text":{"type":"native","value":"\t#使い方\n\t普通にノートが取れる。\n\t\n\t文頭に以下の記号を用いると特殊なスタイルに変換される\n\t-# ヘッダ\n\t\t-ヘッダは#1コしか認識しない\n\t\t-ヘッダのレベルはタブインデントにより制御する\n\t-- 箇条書き\n\t\t-こちらも同じくタブインデントでレベルを制御"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":420},"_text":{"type":"native","value":"\t#今後つくろうと思っている機能\n\t-markdown記法の拡張\n\t\t-(画像)[url]による画像の挿入\n\t\t-表組み機能\t\n\t\t\t-表組みはmarkdownとしてではなく実装したい\n\t\n\t-Export機能\n\t\t-PDF/HTML/MD\n\t-ブック管理機能\n\t"},"_focus":{"type":"native","value":false}}}]}}}
-
 */
+var sample = '{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array","value":[{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":0},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"#Marknote\\nマークダウンで手軽に綺麗にノートをとれるウェブアプリ\\n===\\nver. 0.1.1\\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":120},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#実装済みの機能\\n\\t-テキストエディット\\n\\t\\t-対応しているmarkdown記法\\n\\t\\t\\t-#ヘッダ\\n\\t\\t\\t\\tヘッダは#1個のみ。\\n\\t\\t\\t\\tインデントのレベルでヘッダレベルを調整\\n\\t\\t\\t--箇条書き\\n\\t-テキストボックスの再配置\\n\\t-セーブ/ロード\\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":580},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#プロジェクトの情報\\n-開発者 きくらげ(twitter: @mr_temperman)\\n-\\tgithub https://github.com/kikura-yuichiro/marknote"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":360},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#今後つくろうと思っている機能\\n\\t-markdown記法の拡張\\n\\t\\t-(画像)[url]による画像の挿入\\n\\t\\t-表組み機能\\t\\n\\t\\t\\t-表組みはmarkdownとしてではなく実装したい\\n\\t\\n\\t-Export機能\\n\\t\\t-PDF/HTML/MD\\n\\t-ブック管理機能\\n\\t"},"_focus":{"type":"native","value":false}}}]}}}';
+
 
 var app = (function() {
 
@@ -1824,9 +2181,24 @@ var app = (function() {
 		var alertView = new AlertView();
 		alertView.appendTo($("body"));
 		app.alertView = alertView;
+
+
+
+		var savedata = Model.load("test");
+
+		if (savedata) {
+			app.noteView.bindModel(savedata);
+			app.alertView.show("読み込みました");
+		} else {
+			savedata = Model.convertFromNativeObject(JSON.parse(sample));
+			app.noteView.bindModel(savedata);
+		}
+
 	};
 
 	app.saveFile = function(ev) {
+		app.noteView.receiver.lostFocus();
+
 		app.noteView.model.save("test");
 		app.alertView.show("保存しました");
 		if (ev) ev.preventDefault();
@@ -1834,6 +2206,7 @@ var app = (function() {
 
 	app.openFile = function(ev) {
 		var savedata = Model.load("test");
+
 		if (!savedata) {
 			app.alertView.showError("セーブデータが存在しません");
 			return;
@@ -1847,7 +2220,7 @@ var app = (function() {
 	app.newFile = function(ev) {
 		var dialog = new NewFileDialogView()
 		dialog.appendTo($("body"));
-		dialog.bind("success", app.createNewFile, app);
+		dialog.one("success", app.createNewFile, app);
 		dialog.fadeIn();
 	};
 
@@ -1871,7 +2244,7 @@ var app = (function() {
 	app.toggleSideMenu = function(ev) {
 		var sideMenu = app.sideMenu;
 
-		if (sideMenu.__$base.css("marginLeft") === "-200px") {
+		if (sideMenu.__$base.css("marginLeft") === -200) {
 			sideMenu.__$base.animate(function(x) {
 				this.css("marginLeft", -200 * (1 - x * x) + "px");
 			}, 100);

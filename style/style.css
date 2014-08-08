@@ -212,10 +212,10 @@ h6.Markdown-header {
 }
 .NoteViewTextbox-base.-drag {
   cursor: move;
-  background: rgba(77, 208, 225, 0.5);
+  background: rgba(77, 208, 225, 0.3);
 }
 .NoteViewTextbox-base.-edit {
-  background: rgba(255, 213, 79, 0.5);
+  background: rgba(255, 213, 79, 0.3);
 }
 .NoteViewTextbox-resizeHandle {
   display: block;
@@ -225,29 +225,120 @@ h6.Markdown-header {
   bottom: 0;
   width: 10px;
   cursor: e-resize;
+  z-index: 65534;
 }
 .NoteViewTextbox-textLayer {
   display: block;
-  position: relative;
-  width: 100%;
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  right: 30px;
+  bottom: 30px;
+  padding: 0;
+  margin: 0;
   border: none;
   background: none;
-  color: #212121;
-  font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
-  font-size: 14px;
-  line-height: 1.2;
   outline: none;
   box-sizing: border-box;
-}
-.NoteViewTextbox-cursorLayer {
-  display: block;
   position: relative;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100%;
-  height: 100%;
+}
+.NoteViewTextbox-dummyLine,
+.NoteViewTextbox-line,
+kbd {
+  display: block;
+  position: relative;
+  padding: 0;
+  margin: 0;
+  color: #212121;
+  font-family: Osaka-mono, "MS Gothic", monospace;
+  font-size: 14px;
+  line-height: 1.2;
+}
+.NoteViewTextbox-scope {
+  display: inline-block;
+  max-width: 100%;
+  margin: 5px 0;
+  padding: 0;
+  word-wrap: break-word;
+  vertical-align: middle;
+}
+.NoteViewTextbox-scope-header1 {
+  margin: 10px 0;
+  color: #26c6da;
+  font-size: 3em;
+  font-weight: bold;
+}
+.NoteViewTextbox-scope-header2 {
+  margin: 10px 0 10px -20px;
+  padding-left: 15px;
+  border-left: 5px solid #26c6da;
+  font-size: 1.8em;
+}
+.NoteViewTextbox-scope-hr {
+  border-bottom: 1px solid #bdbdbd;
+  color: transparent;
+}
+.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-hr {
+  color: #bdbdbd;
+  border-bottom: none;
+}
+.NoteViewTextbox-scope-indent {
+  color: transparent;
+  border-right: 1px solid transparent;
+}
+.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-indent {
+  color: #bdbdbd;
+}
+.NoteViewTextbox-scope-list {
+  padding-left: 14px;
+}
+.NoteViewTextbox-scope-list:before {
+  display: inline-block;
+  position: relative;
+  width: 14px;
+  margin-left: -14px;
+  margin-bottom: -2px;
+  padding: 0;
+  content: "\02022";
+  color: #4dd0e1;
+  text-align: center;
+  vertical-align: middle;
+}
+.NoteViewTextbox-cursorLayer {
+  display: block;
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  right: 30px;
+  bottom: 30px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  outline: none;
+  box-sizing: border-box;
+}
+.NoteViewTextbox-cursor {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 16px;
+  background: #212121;
+  vertical-align: middle;
+}
+.NoteViewTextbox-cursor.-show {
+  display: block;
+}
+.NoteViewTextbox-dummyLine {
+  display: inline-block;
+  white-space: nowrap;
+  opacity: 0;
 }
 .NoteViewInputReceiver-base {
   display: block;
@@ -279,7 +370,6 @@ h6.Markdown-header {
   position: relative;
   flex-grow: 0;
   flex-direction: column;
-  min-width: 600px;
   background: #ffffff;
   box-shadow: 0 10px 60px rgba(0, 0, 0, 0.1);
   border: 2px solid #455ede;
