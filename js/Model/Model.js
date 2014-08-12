@@ -130,22 +130,8 @@ var Model = (function() {
 		});
 
 		if (!this.scheme) this.scheme = [];
-		this.scheme.push("_" + name);
+		this.scheme.push(name);
 	};
 
 	return Model;
-}());
-
-var ModelTest = (function() {
-	function ModelTest() {
-
-	};
-	extendClass(ModelTest, Model);
-
-	ModelTest.__record("name");
-	ModelTest.__record("age");
-	ModelTest.__record("obj");
-	ModelTest.__record("child");
-
-	return ModelTest
 }());

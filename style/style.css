@@ -245,12 +245,13 @@ h6.Markdown-header {
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 65534;
 }
 .NoteViewTextbox-dummyLine,
 .NoteViewTextbox-line,
 kbd {
   display: block;
-  position: relative;
+  position: absolute;
   padding: 0;
   margin: 0;
   color: #212121;
@@ -322,19 +323,6 @@ kbd {
   outline: none;
   box-sizing: border-box;
 }
-.NoteViewTextbox-cursor {
-  display: none;
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 2px;
-  height: 16px;
-  background: #212121;
-  vertical-align: middle;
-}
-.NoteViewTextbox-cursor.-show {
-  display: block;
-}
 .NoteViewTextbox-dummyLine {
   display: inline-block;
   white-space: nowrap;
@@ -345,6 +333,19 @@ kbd {
   position: fixed;
   top: -10px;
   height: 1px;
+}
+.NoteViewCursorView-base {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 16px;
+  background: #212121;
+  vertical-align: middle;
+}
+.NoteViewCursorView-base.-show {
+  display: block;
 }
 .AlertView-base {
   display: block;

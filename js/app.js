@@ -94,7 +94,6 @@ var app = (function() {
 	};
 
 	app.saveFile = function(ev) {
-		app.noteView.receiver.lostFocus();
 
 		app.noteView.model.save("test");
 		app.alertView.show("保存しました");

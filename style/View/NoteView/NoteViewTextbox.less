@@ -1,3 +1,4 @@
+//main: ../../style.less
 //#compileTo="../../style.less"#
 
 .NoteViewTextbox-base {
@@ -62,12 +63,13 @@
 	left: 0;
 	right: 0;
 	bottom: 0;
+	z-index: 65534;
 }
 .NoteViewTextbox-dummyLine,
 .NoteViewTextbox-line,
 kbd {
 	display: block;
-	position: relative;
+	position: absolute;
 
 	padding: 0;
 	margin: 0;
@@ -84,7 +86,7 @@ kbd {
 	margin: 5px 0;
 	padding: 0;
 
-	word-wrap: break-word; 
+	word-wrap: break-word;
 
 	vertical-align: middle;
 }
@@ -142,23 +144,6 @@ kbd {
 
 .NoteViewTextbox-cursorLayer {
 	.NoteViewTextbox-layer();
-}
-.NoteViewTextbox-cursor {
-	display: none;
-	position: absolute;
-
-	top: 0;
-	left: 0;
-	width: 2px;
-	height: 16px;
-
-	background: @Grey900;
-
-	vertical-align: middle;
-
-	&.-show {
-		display: block;
-	}
 }
 .NoteViewTextbox-dummyLine {
 	display: inline-block;
