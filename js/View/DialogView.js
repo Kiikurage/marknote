@@ -1,5 +1,4 @@
-//#include("/View/View.js");
-//#include("/View/ButtonView.js");
+//#include("/View/View.js//#include("/View/ButtonView.js");
 
 var DialogView = (function() {
 
@@ -33,14 +32,9 @@ var DialogView = (function() {
 		this.__btnOK.appendTo(this.__$footer);
 		this.__btnOK.bind("click", this.__clickBtnOK, this);
 	}
-	extendClass(DialogView, View);
-
-	//override
+	extendClass(DialogView, View//override
 	DialogView.prototype.append = DialogView.prototype.appendChild = function(child) {
-		child.appendTo(this.__$body);
-	};
-
-	//override
+		child.appendTo(this.__$body//override
 	DialogView.prototype.appendTo = function(parent) {
 		parent.appendChild(this.__$outer);
 	};

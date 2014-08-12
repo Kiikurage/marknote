@@ -1,3 +1,4 @@
+//main: ../../style.less
 //#compileTo="../../style.less"#
 
 .NoteViewTextbox-base {
@@ -17,7 +18,7 @@
 	&:hover,
 	&.-hover {
 		background: fade(@Grey300, 10);
-		// border-color: @Grey300;
+// border-color: @Grey300;
 	}
 	&.-drag {
 		cursor: move;
@@ -25,7 +26,7 @@
 	}
 	&.-edit {
 		background: fade(@Amber300, 10);
-		// border-color: @Grey300;
+// border-color: @Grey300;
 	}
 }
 .NoteViewTextbox-resizeHandle {
@@ -96,12 +97,13 @@ kbd {
 	margin: 0;
 	padding: 0;
 
-	word-wrap: break-word; 
+	word-wrap: break-word;
 
 	vertical-align: middle;
 }
 .NoteViewTextbox-scope-header1 {
-	margin: 0 0 20px 0;
+	padding: 20px 0 0 0;
+	margin: 0 0 0 0;
 
 	color: @Cyan400;
 	font-size: 3em;
