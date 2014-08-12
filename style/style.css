@@ -278,8 +278,7 @@ kbd {
   vertical-align: middle;
 }
 .NoteViewTextbox-scope-header1 {
-  padding: 20px 0 0 0;
-  margin: 0 0 0 0;
+  margin: 0 0 20px 0;
   color: #26c6da;
   font-size: 3em;
   font-weight: bold;

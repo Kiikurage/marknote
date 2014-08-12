@@ -107,7 +107,7 @@
 		return target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
 	}
 
-	exports.bind = function(publisher, type, fn, context, isNative){
+	exports.bind = function(publisher, type, fn, context, isNative) {
 		//Prevent for register duplication
 		exports.unbind(publisher, type, fn, context);
 
@@ -173,7 +173,9 @@
 			}
 		}
 
-		if (callbacks.length > 0) return//remove nativeCallback
+		if (callbacks.length > 0) return
+
+		//remove nativeCallback
 		var nativeCallbackList = nativeCallbackDict[publisherID];
 		if (nativeCallbackList) {
 			var nativeCallback = nativeCallbackList[type];
@@ -778,7 +780,212 @@ var TabPanelView = (function() {
 
 	return ButtonView;
 }());
-;;var Model = (function() {
+;var Markdown = (function() {
+	var TokenType = {
+		NormalText: 0,
+		Header: 1,
+		Bold: 7,
+		Italic: 8,
+		HorizontalLine: 9,
+		Paragraph: 10,
+		List: 11,
+	};
+
+	var MarkdownToken = (function() {
+		function MarkdownToken(type, value) {
+			this.type = type || TokenType.NormalText;
+			this.value = value || "";
+			this.parent = null;
+			this.children = [];
+			this.indentLevel = 0;
+		};
+
+		MarkdownToken.prototype.appendChild = function(childToken) {
+			childToken.parent = this;
+			childToken.indentLevel = this.indentLevel + 1;
+			this.children.push(childToken);
+		};
+
+		MarkdownToken.prototype.print = function() {
+			var indent = new Array(this.indentLevel + 1).join("....");
+			if (this.type === TokenType.NormalText) {
+				console.log(indent + "<" + this.type + ">" + this.value + "</" + this.type + ">");
+			} else {
+				console.log(indent + "<" + this.type + ">");
+				for (var i = 0, max = this.children.length; i < max; i++) this.children[i].print();
+				console.log(indent + "</" + this.type + ">");
+			}
+		};
+
+		MarkdownToken.prototype.prev = function() {
+			var index = this.parent.children.indexOf(this);
+			if (this.parent.children[index - 1]) {
+				return this.parent.children[index - 1];
+			}
+			return null;
+		};
+
+		MarkdownToken.prototype.next = function() {
+			var index = this.parent.children.indexOf(this);
+			if (this.parent.children[index + 1]) {
+				return this.parent.children[index + 1];
+			}
+			return null;
+		};
+
+		return MarkdownToken;
+	}());
+
+
+	function parse(text) {
+		var rootNode = tokenize(text),
+			html = convertToHTML(rootNode);
+
+		return html;
+	};
+
+	function tokenize(text) {
+		var lines = text.split("\n"),
+			res = scope = new MarkdownToken(TokenType.Paragraph);
+
+		for (var i = 0, max = lines.length; i < max; i++) {
+			var line = lines[i],
+				ma = null;
+
+			//0. preprocessing
+			var indentLevel = 0;
+			if (ma = line.match(/^(\t+)(.*)$/)) {
+				indentLevel = ma[1].length;
+				line = ma[2];
+			}
+			while (indentLevel > scope.indentLevel) {
+				var newToken = new MarkdownToken(TokenType.Paragraph);
+				scope.appendChild(newToken);
+				scope = newToken;
+			}
+			while (indentLevel < scope.indentLevel) {
+				scope = scope.parent;
+			}
+
+			//1. line-head function
+			if (line === "") {
+				while (scope.indentLevel > 0) {
+					scope = scope.parent;
+				}
+				continue;
+			}
+
+			if (ma = line.match(/^#(.*)$/)) {
+				var newToken = new MarkdownToken(TokenType.Header, ma[1]);
+				scope.appendChild(newToken);
+				continue;
+			}
+
+			if (line.match(/^(?:-{3,}|={3,}|\*{3,})$/)) {
+				var newToken = new MarkdownToken(TokenType.HorizontalLine);
+				scope.appendChild(newToken);
+				continue;
+			}
+
+			if (ma = line.match(/^\-[ \t]*(.*)?$/)) {
+				var newToken = new MarkdownToken(TokenType.List);
+				scope.appendChild(newToken);
+				scope = newToken;
+
+				line = ma[1];
+			}
+
+			//2. inline functions
+
+			if (line != "") {
+				var newToken = new MarkdownToken(TokenType.NormalText, line);
+				scope.appendChild(newToken);
+			}
+		}
+
+		return res;
+	};
+
+	function convertToHTML(rootNode) {
+		var html = convertToOpenHTML(rootNode)
+		for (var i = 0, max = rootNode.children.length; i < max; i++) {
+			html += convertToHTML(rootNode.children[i]);
+		}
+		html += convertToCloseHTML(rootNode)
+
+		return html;
+	};
+
+	function convertToOpenHTML(token) {
+		switch (token.type) {
+			case TokenType.Paragraph:
+				return "<div class='Markdown-block'>"
+				break;
+
+			case TokenType.List:
+				var prev = token.prev();
+				if (prev && prev.type === TokenType.List) {
+					return "<li class='Markdown-listItem'>"
+				}
+				return "<ul class='Markdown-list'><li class='Markdown-listItem'>";
+				break;
+
+			case TokenType.HorizontalLine:
+				return "<hr class='Markdown-horizontalLine'/>";
+				break;
+
+			case TokenType.Header:
+				var level = (token.indentLevel < 1) ?
+					1 :
+					(token.indentLevel > 6) ?
+					6 :
+					token.indentLevel;
+				return "<h" + level + " class='Markdown-header'>" + token.value + "</h" + level + ">";
+				break;
+
+			case TokenType.NormalText:
+				var prev = token.prev();
+				if (prev && prev.type === TokenType.NormalText) {
+					return token.value
+				}
+				return "<p class='Markdown-paragraph'>" + token.value;
+				break;
+		}
+
+		return "";
+	};
+
+	function convertToCloseHTML(token) {
+		switch (token.type) {
+			case TokenType.Paragraph:
+				return "</div>"
+				break;
+
+			case TokenType.List:
+				var next = token.next();
+				if (next && next.type === TokenType.List) {
+					return "</li>"
+				}
+				return "</li></ul>";
+				break;
+
+			case TokenType.NormalText:
+				var next = token.next();
+				if (next && next.type === TokenType.NormalText) {
+					return "";
+				}
+				return "</p>";
+				break;
+		}
+
+		return "";
+	};
+
+	return {
+		parse: parse
+	};
+}());
+;var Model = (function() {
 	function Model() {
 
 	}
@@ -1432,7 +1639,7 @@ var NoteView = (function() {
 
 	return AlertView;
 }());
-;//#include("/View/View.jsvar DialogView = (function() {
+;var DialogView = (function() {
 
 	function DialogView() {
 		this.super();
@@ -1464,9 +1671,14 @@ var NoteView = (function() {
 		this.__btnOK.appendTo(this.__$footer);
 		this.__btnOK.bind("click", this.__clickBtnOK, this);
 	}
-	extendClass(DialogView, View//override
+	extendClass(DialogView, View);
+
+	//override
 	DialogView.prototype.append = DialogView.prototype.appendChild = function(child) {
-		child.appendTo(this.__$body//override
+		child.appendTo(this.__$body);
+	};
+
+	//override
 	DialogView.prototype.appendTo = function(parent) {
 		parent.appendChild(this.__$outer);
 	};
@@ -1611,6 +1823,8 @@ var NoteView = (function() {
 ;/*
 test data
 */
+var sample = '{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array","value":[{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":0},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"#Marknote\\nマークダウンで手軽に綺麗にノートをとれるウェブアプリ\\nver. 0.1.1\\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":140},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#実装済みの機能\\n\\t-テキストエディット\\n\\t\\t-対応しているmarkdown記法\\n\\t\\t\\t-# ヘッダ\\n\\t\\t\\t\\tヘッダは#1個のみ。\\n\\t\\t\\t\\tインデントのレベルでヘッダレベルを調整\\n\\t\\t\\t-- 箇条書き\\n\\t-テキストボックスの再配置\\n\\t-セーブ/ロード\\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":680},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#プロジェクトの情報\\n-開発者 きくらげ(twitter: @mr_temperman)\\n-github https://github.com/kikura-yuichiro/marknote"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":420},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#今後つくろうと思っている機能\\n\\t-markdown記法の拡張\\n\\t\\t-(画像)[url]による画像の挿入\\n\\t\\t-表組み機能\\t\\n\\t\\t\\t-表組みはmarkdownとしてではなく実装したい\\n\\t-Export機能\\n\\t\\t-PDF/HTML/MD\\n\\t-ブック管理機能"},"_focus":{"type":"native","value":false}}}]}}}';
+
 
 var app = (function() {
 

@@ -9,7 +9,7 @@ var IPubSub = (function(exports) {
 		return target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
 	}
 
-	exports.bind = function(publisher, type, fn, context, isNative){
+	exports.bind = function(publisher, type, fn, context, isNative) {
 		//Prevent for register duplication
 		exports.unbind(publisher, type, fn, context);
 
@@ -75,7 +75,9 @@ var IPubSub = (function(exports) {
 			}
 		}
 
-		if (callbacks.length > 0) return//remove nativeCallback
+		if (callbacks.length > 0) return
+
+		//remove nativeCallback
 		var nativeCallbackList = nativeCallbackDict[publisherID];
 		if (nativeCallbackList) {
 			var nativeCallback = nativeCallbackList[type];
