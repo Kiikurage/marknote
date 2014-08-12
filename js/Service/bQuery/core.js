@@ -75,9 +75,6 @@ var bQuery = (function() {
 			});
 
 			return res;
-		},
-		eq: function(i) {
-			return $(this[i]);
 		}
 	});
 

@@ -201,24 +201,21 @@ h6.Markdown-header {
 .NoteViewTextbox-base {
   display: block;
   position: absolute;
-  padding: 0;
+  padding: 30px;
   margin: 0;
   border-radius: 3px;
-  border: 1px solid transparent;
-  background: transparent;
   transition: background 0.2s ease;
-  cursor: default;
 }
 .NoteViewTextbox-base:hover,
 .NoteViewTextbox-base.-hover {
-  background: rgba(224, 224, 224, 0.1);
+  background: rgba(245, 245, 245, 0.5);
 }
 .NoteViewTextbox-base.-drag {
   cursor: move;
   background: rgba(77, 208, 225, 0.3);
 }
 .NoteViewTextbox-base.-edit {
-  background: rgba(255, 213, 79, 0.1);
+  background: rgba(255, 213, 79, 0.3);
 }
 .NoteViewTextbox-resizeHandle {
   display: block;
@@ -228,36 +225,28 @@ h6.Markdown-header {
   bottom: 0;
   width: 10px;
   cursor: e-resize;
-  z-index: 65535;
+  z-index: 65534;
 }
-.NoteViewTextbox-renderingLayer {
+.NoteViewTextbox-textLayer {
   display: block;
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  right: 30px;
+  bottom: 30px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  outline: none;
+  box-sizing: border-box;
   position: relative;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 10px;
-  color: #212121;
-  font-family: Osaka-mono, "MS Gothic", monospace;
-  font-size: 14px;
-  line-height: 1.2;
 }
-.NoteViewTextbox-editLayer {
-  display: block;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 10px;
-  color: #212121;
-  font-family: Osaka-mono, "MS Gothic", monospace;
-  font-size: 14px;
-  line-height: 1.2;
-  outline: none;
-  z-index: 65534;
-}
+.NoteViewTextbox-dummyLine,
 .NoteViewTextbox-line,
 kbd {
   display: block;
@@ -272,13 +261,13 @@ kbd {
 .NoteViewTextbox-scope {
   display: inline-block;
   max-width: 100%;
-  margin: 0;
+  margin: 5px 0;
   padding: 0;
   word-wrap: break-word;
   vertical-align: middle;
 }
 .NoteViewTextbox-scope-header1 {
-  margin: 0 0 20px 0;
+  margin: 10px 0;
   color: #26c6da;
   font-size: 3em;
   font-weight: bold;
@@ -299,12 +288,10 @@ kbd {
 }
 .NoteViewTextbox-scope-indent {
   color: transparent;
-  width: 4em;
-  height: 1px;
+  border-right: 1px solid transparent;
 }
 .NoteViewTextbox-base.-edit .NoteViewTextbox-scope-indent {
   color: #bdbdbd;
-  background: #bdbdbd;
 }
 .NoteViewTextbox-scope-list {
   padding-left: 14px;
@@ -320,6 +307,44 @@ kbd {
   color: #4dd0e1;
   text-align: center;
   vertical-align: middle;
+}
+.NoteViewTextbox-cursorLayer {
+  display: block;
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  right: 30px;
+  bottom: 30px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  outline: none;
+  box-sizing: border-box;
+}
+.NoteViewTextbox-cursor {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 16px;
+  background: #212121;
+  vertical-align: middle;
+}
+.NoteViewTextbox-cursor.-show {
+  display: block;
+}
+.NoteViewTextbox-dummyLine {
+  display: inline-block;
+  white-space: nowrap;
+  opacity: 0;
+}
+.NoteViewInputReceiver-base {
+  display: block;
+  position: fixed;
+  top: -10px;
+  height: 1px;
 }
 .AlertView-base {
   display: block;

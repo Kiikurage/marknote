@@ -1,5 +1,6 @@
 //#include("/View/View.js");
 //#include("/View/NoteView/NoteViewTextbox.js");
+//#include("/View/NoteView/NoteViewInputReceiver.js");
 //#include("/Model/NoteViewPageModel.js");
 
 GRID_SIZE = 20;
@@ -9,6 +10,8 @@ var NoteView = (function() {
 		this.super();
 		this.__$base = $("<div class='NoteView-base'></div>");
 		this.__$base.bind("click", this.__click, this, true);
+
+		this.receiver = new NoteViewInputReceiver();
 	}
 	extendClass(NoteView, View);
 
@@ -30,8 +33,8 @@ var NoteView = (function() {
 
 	NoteView.prototype.__click = function(ev) {
 		var textbox = this.__addTextbox(),
-			x = Math.round(ev.offsetX / GRID_SIZE) * GRID_SIZE - 10,
-			y = Math.round(ev.offsetY / GRID_SIZE) * GRID_SIZE - 20;
+			x = Math.round(ev.offsetX / GRID_SIZE) * GRID_SIZE - 30,
+			y = Math.round(ev.offsetY / GRID_SIZE) * GRID_SIZE - 50;
 
 		if (x < 0) x = 0;
 		if (y < 0) y = 0;
@@ -43,7 +46,7 @@ var NoteView = (function() {
 
 	NoteView.prototype.__addTextbox = function(model) {
 		var model = model || new NoteViewTextboxModel(),
-			textbox = new NoteViewTextbox();
+			textbox = new NoteViewTextbox(this.receiver);
 
 		textbox.bindModel(model);
 		textbox.appendTo(this);
