@@ -1,31 +1,27 @@
+//main: ../../style.less
 //#compileTo="../../style.less"#
 
 .NoteViewTextbox-base {
 	display: block;
 	position: absolute;
 
-	padding: 0;
+	padding: 20px;
 	margin: 0;
 
 	border-radius: 3px;
-	border: 1px solid transparent;
-	background: transparent;
-
-	transition: background 0.2s ease;
-	cursor: default;
+	border: 1px solid fade(@Orange300, 0);
+	transition: border-color 0.2s ease;
 
 	&:hover,
 	&.-hover {
-		background: fade(@Grey300, 10);
-		// border-color: @Grey300;
+		border-color: fade(@Orange300, 50);
 	}
 	&.-drag {
 		cursor: move;
-		background: fade(@Cyan300, 30);
+		border-color: @Orange300;
 	}
 	&.-edit {
-		background: fade(@Amber300, 10);
-		// border-color: @Grey300;
+		border-color: @Orange300;
 	}
 }
 .NoteViewTextbox-resizeHandle {
@@ -38,118 +34,135 @@
 	width: 10px;
 
 	cursor: e-resize;
-	z-index: 65535;
+	z-index: 65534;
 }
 
-.NoteViewTextbox-renderingLayer {
-	display: block;
-	position: relative;
-
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-
-	padding: 10px;
-
-	color: @Grey900;
-	font-family: Osaka-mono, "MS Gothic", monospace;
-	font-size: 14px;
-	line-height: 1.2;
-}
-.NoteViewTextbox-editLayer {
+.NoteViewTextbox-layer() {
 	display: block;
 	position: absolute;
 
+	top: 20px;
+	left: 20px;
+	right: 20px;
+	bottom: 20px;
+
+	padding: 0;
+	margin: 0;
+
+	border: none;
+	background: none;
+
+	outline: none;
+	box-sizing: border-box;
+}
+.NoteViewTextbox-textLayer {
+	.NoteViewTextbox-layer();
+	position: relative;
 	top: 0;
 	left: 0;
 	right: 0;
 	bottom: 0;
-
-	padding: 10px;
-
-	color: @Grey900;
-	font-family: Osaka-mono, "MS Gothic", monospace;
-	font-size: 14px;
-	line-height: 1.2;
-
-	outline: none;
-	z-index: 65534;
 }
-.NoteViewTextbox-line,
-kbd {
+.NoteViewTextbox-line {
 	display: block;
-	position: relative;
+	position: absolute;
 
 	padding: 0;
 	margin: 0;
 
-	color: @Grey900;
+	// color: #effdff;
 	font-family: Osaka-mono, "MS Gothic", monospace;
 	font-size: 14px;
-	line-height: 1.2;
+	line-height: 1.5;
+
+	&.-focus {
+		background: fade(@Orange300, 10);
+	}
 }
 .NoteViewTextbox-scope {
 	display: inline-block;
+	position: relative;
 
-	max-width: 100%;
-	margin: 0;
-	padding: 0;
-
-	word-wrap: break-word; 
-
+	word-wrap: break-word;
 	vertical-align: middle;
 }
 .NoteViewTextbox-scope-header1 {
-	margin: 0 0 20px 0;
-
+	margin: 10px 0;
 	color: @Cyan400;
-	font-size: 3em;
+	font-size: 3.5em;
 	font-weight: bold;
+	line-height: 45px;
 }
 .NoteViewTextbox-scope-header2 {
-	margin: 10px 0 10px -20px;
-	padding-left: 15px;
-
-	border-left: 5px solid @Cyan400;
-
-	font-size: 1.8em;
-}
-.NoteViewTextbox-scope-hr {
-	border-bottom: 1px solid @Grey400;
-	color: transparent;
+	font-size: 2em;
+	line-height: 24px;
+	margin: 20px 0 10px;
+	color: @Cyan400;
 }
 .NoteViewTextbox-base.-edit .NoteViewTextbox-scope-hr {
-	color: @Grey400;
-	border-bottom: none;
+	border-bottom-color: fade(@Cyan400, 10);
 }
+.NoteViewTextbox-scope-symbolblock-indent {
+	display: inline-block;
+	position:relative;
 
-.NoteViewTextbox-scope-indent {
 	color: transparent;
-	width: 4em;
-	height: 1px;
-}
-.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-indent {
-	color: @Grey400;
-	background: @Grey400;
-}
+	width: 2em;
+	height: 100%;
+	border-right: 1px dotted transparent;
+	text-align: center;
 
-.NoteViewTextbox-scope-list {
-	padding-left: 14px;
-
-	&:before {
-		display: inline-block;
+	.NoteViewTextbox-scope-symbolblock-indent-inner {
+		display: block;
 		position: relative;
 
-		width: 14px;
-		margin-left: -14px;
-		margin-bottom: -2px;
-		padding: 0;
-
-		content: "\02022";
-		color: @Cyan300;
-		text-align: center;
-
-		vertical-align: middle;
+		width: 90%;
+		height: 1px;
+		top: 50%;
+		margin: 0 auto;
+		background: transparent;
 	}
+}
+.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-symbolblock-indent {
+	border-right-color: fade(@Orange500, 40);
+	.NoteViewTextbox-scope-symbolblock-indent-inner {
+		background: @Grey300;
+	}
+}
+.NoteViewTextbox-scope-symbolblock-list {
+	display: inline-block;
+	position:relative;
+
+	color: transparent;
+	width: 2em;
+	height: 100%;
+	text-align: center;
+
+	box-sizing: border-box;
+
+
+
+	.NoteViewTextbox-scope-symbolblock-list-inner {
+		position: relative;
+
+		width: 0;
+		height: 0;
+		border: 3px solid @Grey900;
+		border-radius: 3px;
+	}
+}
+.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-symbolblock-list {
+	.NoteViewTextbox-scope-symbolblock-list-inner {
+		background: @Grey200;
+	}
+}
+.NoteViewTextbox-scope-bold {
+	color: @Red500;
+	vertical-align: top;
+	// margin: -1px;
+	// border: 1px solid @Red500;
+}
+
+.NoteViewTextbox-cursorLayer {
+	.NoteViewTextbox-layer();
 }

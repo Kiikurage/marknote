@@ -1,0 +1,28 @@
+//#compileTo="../../style.less"#
+
+.NoteViewCursorView-base {
+	display: none;
+	position: absolute;
+
+	top: 0;
+	left: 0;
+	width: 2px;
+	height: 16px;
+
+	background: @Grey900;
+
+	vertical-align: middle;
+
+	&.-show {
+		display: block;
+	}
+}
+.NoteViewCursorView-marker {
+	display: inline-block;
+	position: relative;
+
+	width: 0px;
+	height: 0px;
+
+	background: @Red300;
+}

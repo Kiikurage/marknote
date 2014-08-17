@@ -1,10 +1,12 @@
 //#include("/View/View.js");
+//#include("/View/NoteView/NoteViewCursorView.js");
 //#include("/Service/Markdown.js");
 //#include("/Model/NoteViewTextboxModel.js");
+//#include("/View/NoteView/NoteViewScopeParser.js");
 
 var NoteViewTextbox = (function() {
 
-	function NoteViewTextbox(receiver) {
+	function NoteViewTextbox(cursor) {
 		this.super();
 
 		this.__$base = $("<div class='NoteViewTextbox-base'></div>");
@@ -15,23 +17,22 @@ var NoteViewTextbox = (function() {
 		this.__$resizeHandle.appendTo(this.__$base);
 		this.__$resizeHandle.bind("mousedown", this.__mousedownResizeHandle, this, true);
 
-		this.__$renderingLayer = $("<div class='NoteViewTextbox-renderingLayer'></div>")
-		this.__$renderingLayer.appendTo(this.__$base);
+		this.__$textLayer = $("<div class='NoteViewTextbox-textLayer'></div>")
+		this.__$textLayer.appendTo(this.__$base);
 
-		this.__$editLayer = $("<div class='NoteViewTextbox-editLayer' contenteditable='true'></div>")
-		this.__$editLayer.appendTo(this.__$base);
-		this.__$editLayer.bind("input", this.__input, this, true);
-		this.__$editLayer.bind("keydown", this.__keydown, this, true);
-		this.__$editLayer.bind("keyup", this.__keyup, this, true);
-		this.__$editLayer.bind("blur", this.__blur, this, true);
+		this.__$cursorLayer = $("<div class='NoteViewTextbox-cursorLayer'></div>")
+		this.__$cursorLayer.appendTo(this.__$base);
 
-		this.__isMultiByteInputMode = false;
+		this.cursor = cursor;
+
+		this.renderingInfo = [];
 	}
 	extendClass(NoteViewTextbox, View);
 
 	NoteViewTextbox.prototype.bindModel = function(model) {
 		this.model = model;
 		model.view = this;
+		model.__receiver = this.__receiver;
 
 		this.model.bind("update", this.update, this);
 
@@ -107,28 +108,6 @@ var NoteViewTextbox = (function() {
 		this.model.w = w;
 	};
 
-	NoteViewTextbox.prototype.__input = function(ev) {
-		var text = this.__$editLayer.text();
-		this.model.text = text.slice(0, text.length - 1);
-	};
-
-	NoteViewTextbox.prototype.__keydown = function(ev) {
-		if (ev.keyCode === KEYCODE.MULTIBYTE_MODE) {
-			this.__isMultiByteInputMode = true;
-		}
-	};
-
-	NoteViewTextbox.prototype.__keyup = function(ev) {
-		if (ev.keyCode === KEYCODE.ENTER) {
-			this.__isMultiByteInputMode = false;
-			this.update();
-		}
-	};
-
-	NoteViewTextbox.prototype.__blur = function(ev) {
-		this.lostFocus();
-	};
-
 	/*-------------------------------------------------
 	 * remove
 	 */
@@ -142,11 +121,15 @@ var NoteViewTextbox = (function() {
 	 * focus
 	 */
 	NoteViewTextbox.prototype.setFocus = function() {
+		this.cursor.attach(this);
+		this.cursor.setSelection(0, 0);
+
+		this.fire("update", this);
 		this.__$base.addClass("-edit");
-		this.setCursorIndex(this.getCursorIndex());
 	};
 
 	NoteViewTextbox.prototype.lostFocus = function() {
+		this.cursor.detach(this);
 		this.__$base.removeClass("-edit");
 
 		if (this.model.text.replace(/\s*/g, "") === "") this.remove();
@@ -156,202 +139,54 @@ var NoteViewTextbox = (function() {
 	 * update
 	 */
 	NoteViewTextbox.prototype.update = function() {
-		var model = this.model,
-			text = model.text,
-			html = this.convertTextToHTML(text);
+		this.updateBase();
+		this.updateTextLayer();
 
+		this.fire("update", this);
+	};
 
-		this.__$renderingLayer.html(html);
+	NoteViewTextbox.prototype.updateTextLayer = function() {
+		var lines = this.model.text.split("\n"),
+			top = 0,
+			width = this.model.w;
+
+		this.__$textLayer.children().remove();
+
+		this.renderingInfo = [];
+		for (var i = 0, max = lines.length; i < max; i++) {
+			var lineRenderingInfo = NoteViewScopeParser.convertLineToHTML(lines[i]),
+				$line = $(lineRenderingInfo.html);
+
+			this.renderingInfo.push({
+				top: top,
+				height: lineRenderingInfo.height,
+				node: $line[0]
+			});
+
+			this.__$textLayer.append($line);
+			$line.css({
+				top: top,
+				width: width,
+				height: lineRenderingInfo.height
+			});
+
+			top += lineRenderingInfo.height;
+		};
+		this.__$textLayer.css("height", top);
+	};
+
+	NoteViewTextbox.prototype.updateBase = function() {
+		var model = this.model;
+
 		this.__$base.css({
 			left: model.x,
 			top: model.y,
 			width: model.w,
 			zIndex: model.z
 		});
-
-		if (!this.__isMultiByteInputMode) {
-			var index = this.getCursorIndex();
-			this.__$editLayer.html(html);
-			this.setCursorIndex(index);
-		}
-
-		this.fire("update", this);
 	};
 
-	NoteViewTextbox.prototype.convertTextToHTML = function(text) {
-		var html = "",
-			lines = text.split("\n");
 
-		for (var i = 0, max = lines.length; i < max; i++) {
-			html +=
-				"<p class='NoteViewTextbox-line'>" +
-				this.convertLineToHTML(lines[i]) +
-				"</p>";
-		}
-
-		return html;
-	};
-
-	NoteViewTextbox.prototype.convertLineToHTML = function(line) {
-		var parts = line.match(/^(\t*)(.*)$/, ""),
-			indent = parts[1],
-			body = parts[2],
-			scopes = [],
-			res = "";
-
-
-		for (var i = 0, max = indent.length; i < max; i++) {
-			res += wrapTextByScope("\t", ["NoteViewTextbox-scope-indent"]);
-		}
-
-		if (body[0] === "#") {
-			var headerLevel = indent.length + 1;
-			if (headerLevel > 6) headerLevel = 6;
-			scopes.push("NoteViewTextbox-scope-header" + headerLevel);
-		}
-		if (body[0] === "-") scopes.push("NoteViewTextbox-scope-list");
-		if (/^={3,}.*$/.test(body)) scopes.push("NoteViewTextbox-scope-hr");
-
-		res += wrapTextByScope(body, scopes);
-
-		return res;
-	};
-
-	function wrapTextByScope(text, scopes) {
-		var pattern = "<span class='{class}'>{body}</span>",
-			scopes = ["NoteViewTextbox-scope"].concat(scopes);
-
-		var escaped = text
-			.replace(/</g, "&lt;")
-			.replace(/>/g, "&gt;")
-			.replace(/ /g, "&nbsp;");
-
-		return pattern
-			.replace("{class}", scopes.join(" "))
-			.replace("{body}", escaped);
-	};
-
-	/*-------------------------------------------------
-	 * cursor
-	 */
-	NoteViewTextbox.prototype.getCursorIndex = function() {
-		var NODETYPE_TEXTNODE = 3,
-			selection = document.getSelection(),
-			baseNode = selection.baseNode,
-			flagComplete = false;
-
-		if (!baseNode) return 0;
-
-		function getCursorIndexCore(rootNode) {
-			var childNodes = rootNode.childNodes,
-				index = 0;
-
-			if (rootNode === baseNode) return 0;
-
-			for (var i = 0, max = childNodes.length; i < max; i++) {
-				var child = childNodes[i];
-
-				if (child.nodeType !== NODETYPE_TEXTNODE) {
-
-					if (child === baseNode) {
-						flagComplete = true;
-						return index;
-					}
-
-					index += getCursorIndexCore(child, index);
-					if (flagComplete) {
-						return index;
-					}
-
-				} else if (child === baseNode) {
-
-					index += selection.getRangeAt(0).startOffset
-					flagComplete = true;
-					return index;
-
-				} else {
-
-					index += child.length;
-
-				}
-
-			}
-
-			if (rootNode.classList.contains("NoteViewTextbox-line")) {
-				index++;
-			}
-
-			return index;
-		}
-
-		return getCursorIndexCore(this.__$editLayer[0]);
-	};
-
-	NoteViewTextbox.prototype.setCursorIndex = function(index) {
-		var NODETYPE_TEXTNODE = 3,
-			flagComplete = false;
-
-		function setCursorIndexCore(baseNode, index) {
-			var childNodes = baseNode.childNodes;
-
-			if (index === 0 && childNodes.length === 0) {
-				var selection = document.getSelection(),
-					range = document.createRange();
-
-				if (baseNode.classList.contains("NoteViewTextbox-line")) {
-					var $scope = $(wrapTextByScope("", []));
-					$scope.appendTo(baseNode);
-					baseNode = $scope[0];
-				}
-
-				range.setStart(baseNode, index);
-				range.setEnd(baseNode, index);
-				selection.removeAllRanges();
-				selection.addRange(range);
-
-				flagComplete = true;
-				return 0;
-			}
-
-			for (var i = 0, max = childNodes.length; i < max; i++) {
-				var child = childNodes[i];
-
-				if (child.nodeType !== NODETYPE_TEXTNODE) {
-
-					index = setCursorIndexCore(child, index);
-					if (flagComplete) return 0;
-
-				} else {
-
-					var len = child.length;
-
-					if (index > len) {
-						index = index - len;
-						continue;
-					}
-
-					var selection = document.getSelection(),
-						range = document.createRange();
-
-					range.setStart(child, index);
-					range.setEnd(child, index);
-					selection.removeAllRanges();
-					selection.addRange(range);
-
-					flagComplete = true;
-					return 0;
-				}
-			}
-
-			if (baseNode.classList.contains("NoteViewTextbox-line")) {
-				index--;
-			}
-
-			return index;
-		}
-
-		setCursorIndexCore(this.__$editLayer[0], index);
-	};
 
 	return NoteViewTextbox;
 }());
