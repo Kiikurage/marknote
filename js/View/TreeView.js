@@ -1,3 +1,13 @@
+/*
+ *	TODO:
+ *
+ *	updateが走りすぎている
+ *	再描画タイミングの最適化
+ *
+ *	モデル - ビュー間の構造の簡潔化
+ *
+ */
+
 //#include("/View/View.js");
 //#include("/Model/TreeViewNodeViewModel.js");
 
@@ -23,7 +33,6 @@ var TreeViewNodeView = (function() {
 	};
 
 	TreeViewNodeView.prototype.update = function(model) {
-		console.log("update: " + model.data);
 		var $mainContent = this.delegateUpdateMainContent(model),
 			$childContent = this.delegateUpdateChildContent(model),
 			$totalContent = this.delegateUpdateTotalContent($mainContent, $childContent);

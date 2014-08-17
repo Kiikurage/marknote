@@ -100,18 +100,25 @@
 ;var IPubSub = (function(exports) {
 
 	var callbackDict = {};
+	var publisherList = {};
 	var nativeCallbackDict = {};
 	var guid = 0;
 
-	function getPublihserId(target, flagCreate) {
-		return target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
+	window.callbackDict = callbackDict;
+	window.publisherList = publisherList
+
+	function getPublisherId(target, flagCreate) {
+		var res = target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
+		publisherList[res] = target;
+
+		return res;
 	}
 
 	exports.bind = function(publisher, type, fn, context, isNative) {
 		//Prevent for register duplication
 		exports.unbind(publisher, type, fn, context);
 
-		var publisherID = getPublihserId(publisher, true);
+		var publisherID = getPublisherId(publisher, true);
 
 		var callbackList = callbackDict[publisherID];
 		if (!callbackList) {
@@ -153,7 +160,7 @@
 	};
 
 	exports.unbind = function(publisher, type, fn, context) {
-		var publisherID = getPublihserId(publisher);
+		var publisherID = getPublisherId(publisher);
 		if (!publisherID) return;
 
 		var callbackList = callbackDict[publisherID];
@@ -184,10 +191,16 @@
 				nativeCallback = nativeCallbackList[type] = null;
 			}
 		}
+
+		delete callbackList[type];
+		if (!Object.keys(callbackList).length) {
+			delete callbackDict[publisherID];
+			delete publisherList[publisherID];
+		};
 	};
 
 	exports.fire = function(publisher, type, argArr) {
-		var publisherID = getPublihserId(publisher);
+		var publisherID = getPublisherId(publisher);
 		if (!publisherID) return;
 
 		var callbackList = callbackDict[publisherID];
@@ -1798,7 +1811,6 @@ var NoteViewCursorView = (function() {
 
 		this.__$textLayer = $("<div class='NoteViewTextbox-textLayer'></div>")
 		this.__$textLayer.appendTo(this.__$base);
-
 		this.__$cursorLayer = $("<div class='NoteViewTextbox-cursorLayer'></div>")
 		this.__$cursorLayer.appendTo(this.__$base);
 
@@ -1893,6 +1905,10 @@ var NoteViewCursorView = (function() {
 	NoteViewTextbox.prototype.remove = function() {
 		this.__$base.remove();
 
+		this.__$base.unbind("click", this.__click, this, true);
+		this.__$base.unbind("mousedown", this.__mousedown, this, true);
+		this.__$resizeHandle.unbind("mousedown", this.__mousedownResizeHandle, this, true);
+		this.model.unbind("update", this.update, this);
 		this.fire("remove", this);
 	};
 
@@ -1983,7 +1999,7 @@ var NoteViewCursorView = (function() {
 			this.textboxes.push(model);
 		}
 
-		model.bind("update", this.update, this)
+		model.bind("update", this.update, this);
 
 		this.fire("update");
 	};
@@ -2004,7 +2020,14 @@ var NoteViewCursorView = (function() {
 
 	return NoteViewPageModel;
 }());
-;GRID_SIZE = 20;
+;/*
+ *	TODO
+ *
+ *	構造の明瞭化
+ *
+ */
+
+GRID_SIZE = 20;
 var NoteView = (function() {
 
 	function NoteView(model) {
@@ -2060,6 +2083,7 @@ var NoteView = (function() {
 
 	NoteView.prototype.__removeTextbox = function(textbox) {
 		this.model.removeTextbox(textbox.model);
+		textbox.unbind("remove", this.__removeTextbox, this);
 	};
 
 	NoteView.prototype.update = function() {
@@ -2257,7 +2281,17 @@ var NoteView = (function() {
 
 	return TreeViewNodeViewModel;
 }());
-;var TreeView = (function() {
+;/*
+ *	TODO:
+ *
+ *	updateが走りすぎている
+ *	再描画タイミングの最適化
+ *
+ *	モデル - ビュー間の構造の簡潔化
+ *
+ */
+
+var TreeView = (function() {
 	function TreeView(root) {
 		this.__$base = $("<div class='TreeView'></div>");
 		root.view.appendTo(this);
@@ -2279,7 +2313,6 @@ var TreeViewNodeView = (function() {
 	};
 
 	TreeViewNodeView.prototype.update = function(model) {
-		console.log("update: " + model.data);
 		var $mainContent = this.delegateUpdateMainContent(model),
 			$childContent = this.delegateUpdateChildContent(model),
 			$totalContent = this.delegateUpdateTotalContent($mainContent, $childContent);
@@ -2323,11 +2356,18 @@ var app = (function() {
 	var app = {};
 
 	app.init = function() {
+
+		//-------------------------------
+		//ToolbarView
+
 		var toolbar = new ToolbarView();
 		toolbar.setID("toolbar");
 		toolbar.append($("#logo"));
 		toolbar.insertBefore($("#maincontainer"));
 		app.toolbar = toolbar;
+
+		//-------------------------------
+		//ButtonView
 
 		var btnNewFile = new ButtonView("新規作成(&#8963;&#8984;N)");
 		btnNewFile.appendTo(toolbar);
@@ -2354,35 +2394,22 @@ var app = (function() {
 		btnExport.bind("click", app.exportFile, app);
 		app.btnExport = btnExport;
 
+		var btnToggleSideMenu = new ButtonView("メニューの開閉(&#8963;&#8984;T)");
+		btnToggleSideMenu.appendTo(toolbar);
+		btnToggleSideMenu.bind("click", app.toggleSideMenu, app);
+		app.btnToggleSideMenu = btnToggleSideMenu;
+
+		//-------------------------------
+		//SideMenuView
+
 		var sideMenu = new SideMenuView();
 		sideMenu.setID("sidemenu");
 		sideMenu.__$base.css("marginLeft", -200);
 		sideMenu.appendTo($("#maincontainer"));
 		app.sideMenu = sideMenu;
 
-		var btnToggleSideMenu = new ButtonView("メニューの開閉(&#8963;&#8984;T)");
-		btnToggleSideMenu.appendTo(toolbar);
-		btnToggleSideMenu.bind("click", app.toggleSideMenu, app);
-		app.btnToggleSideMenu = btnToggleSideMenu;
-
-		var noteView = new NoteView();
-		noteView.setID("noteview");
-		noteView.appendTo($("#maincontainer"));
-		app.noteView = noteView;
-
-		var kr = new KeyRecognizer();
-		kr.listen(document.body);
-		kr.register({
-			"cmd+S": app.saveFile,
-			"cmd+O": app.openFile,
-			"ctrl+cmd+N": app.newFile,
-			"ctrl+cmd+T": app.toggleSideMenu,
-		}, app);
-		app.kr = kr;
-
-		var alertView = new AlertView();
-		alertView.appendTo($("body"));
-		app.alertView = alertView;
+		//-------------------------------
+		//TreeView
 
 		root = new TreeViewNodeViewModel();
 		root.data = "root";
@@ -2417,6 +2444,35 @@ var app = (function() {
 
 		var treeView = new TreeView(root);
 		treeView.appendTo(sideMenu);
+
+		//-------------------------------
+		//NoteView
+
+		var noteView = new NoteView();
+		noteView.setID("noteview");
+		noteView.appendTo($("#maincontainer"));
+		app.noteView = noteView;
+
+		//-------------------------------
+		//KeyRecognizer
+
+		var kr = new KeyRecognizer();
+		kr.listen(document.body);
+		kr.register({
+			"cmd+S": app.saveFile,
+			"cmd+O": app.openFile,
+			"ctrl+cmd+N": app.newFile,
+			"ctrl+cmd+T": app.toggleSideMenu,
+		}, app);
+		app.kr = kr;
+
+		//-------------------------------
+		//AlertView
+
+		var alertView = new AlertView();
+		alertView.appendTo($("body"));
+		app.alertView = alertView;
+
 
 		var savedata = Model.load("test");
 

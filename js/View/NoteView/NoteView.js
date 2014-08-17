@@ -1,3 +1,10 @@
+/*
+ *	TODO
+ *
+ *	構造の明瞭化
+ *
+ */
+
 //#include("/View/View.js");
 //#include("/View/NoteView/NoteViewTextbox.js");
 //#include("/View/NoteView/NoteViewCursorView.js");
@@ -59,6 +66,7 @@ var NoteView = (function() {
 
 	NoteView.prototype.__removeTextbox = function(textbox) {
 		this.model.removeTextbox(textbox.model);
+		textbox.unbind("remove", this.__removeTextbox, this);
 	};
 
 	NoteView.prototype.update = function() {

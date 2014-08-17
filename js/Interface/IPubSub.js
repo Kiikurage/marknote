@@ -2,18 +2,25 @@
 var IPubSub = (function(exports) {
 
 	var callbackDict = {};
+	var publisherList = {};
 	var nativeCallbackDict = {};
 	var guid = 0;
 
-	function getPublihserId(target, flagCreate) {
-		return target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
+	window.callbackDict = callbackDict;
+	window.publisherList = publisherList
+
+	function getPublisherId(target, flagCreate) {
+		var res = target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
+		publisherList[res] = target;
+
+		return res;
 	}
 
 	exports.bind = function(publisher, type, fn, context, isNative) {
 		//Prevent for register duplication
 		exports.unbind(publisher, type, fn, context);
 
-		var publisherID = getPublihserId(publisher, true);
+		var publisherID = getPublisherId(publisher, true);
 
 		var callbackList = callbackDict[publisherID];
 		if (!callbackList) {
@@ -55,7 +62,7 @@ var IPubSub = (function(exports) {
 	};
 
 	exports.unbind = function(publisher, type, fn, context) {
-		var publisherID = getPublihserId(publisher);
+		var publisherID = getPublisherId(publisher);
 		if (!publisherID) return;
 
 		var callbackList = callbackDict[publisherID];
@@ -86,10 +93,16 @@ var IPubSub = (function(exports) {
 				nativeCallback = nativeCallbackList[type] = null;
 			}
 		}
+
+		delete callbackList[type];
+		if (!Object.keys(callbackList).length) {
+			delete callbackDict[publisherID];
+			delete publisherList[publisherID];
+		};
 	};
 
 	exports.fire = function(publisher, type, argArr) {
-		var publisherID = getPublihserId(publisher);
+		var publisherID = getPublisherId(publisher);
 		if (!publisherID) return;
 
 		var callbackList = callbackDict[publisherID];
