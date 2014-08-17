@@ -7,8 +7,6 @@ var TreeViewNodeViewModel = (function() {
 		this.parent = null;
 		this.data = null;
 		this.view = new TreeViewNodeView(this);
-
-		this.update();
 	}
 	IPubSub.implement(TreeViewNodeViewModel.prototype);
 
@@ -20,6 +18,7 @@ var TreeViewNodeViewModel = (function() {
 		child.parent = child;
 
 		this.update();
+		child.update();
 	};
 
 	TreeViewNodeViewModel.prototype.removeChild = function(child) {

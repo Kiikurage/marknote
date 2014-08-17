@@ -50,7 +50,6 @@ var TreeViewNodeView = (function() {
 		var $container = $("<ul></ul>");
 
 		for (var i = 0, max = children.length; i < max; i++) {
-			children[i].update();
 			children[i].view.appendTo($container);
 		}
 

@@ -2250,8 +2250,6 @@ var NoteView = (function() {
 		this.parent = null;
 		this.data = null;
 		this.view = new TreeViewNodeView(this);
-
-		this.update();
 	}
 	IPubSub.implement(TreeViewNodeViewModel.prototype);
 
@@ -2263,6 +2261,7 @@ var NoteView = (function() {
 		child.parent = child;
 
 		this.update();
+		child.update();
 	};
 
 	TreeViewNodeViewModel.prototype.removeChild = function(child) {
@@ -2330,7 +2329,6 @@ var TreeViewNodeView = (function() {
 		var $container = $("<ul></ul>");
 
 		for (var i = 0, max = children.length; i < max; i++) {
-			children[i].update();
 			children[i].view.appendTo($container);
 		}
 
