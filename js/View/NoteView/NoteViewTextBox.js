@@ -111,12 +111,13 @@ var NoteViewTextbox = (function() {
 	 * remove
 	 */
 	NoteViewTextbox.prototype.remove = function() {
-		this.__$base.remove();
+		this.super("remove");
 
-		this.__$base.unbind("click", this.__click, this, true);
-		this.__$base.unbind("mousedown", this.__mousedown, this, true);
-		this.__$resizeHandle.unbind("mousedown", this.__mousedownResizeHandle, this, true);
-		this.model.unbind("update", this.update, this);
+		this.__$base.remove();
+		// this.__$base.unbind("click", this.__click, this, true);
+		// this.__$base.unbind("mousedown", this.__mousedown, this, true);
+		// this.__$resizeHandle.unbind("mousedown", this.__mousedownResizeHandle, this, true);
+		// this.model.unbind("update", this.update, this);
 		this.fire("remove", this);
 	};
 

@@ -50,5 +50,9 @@ var View = (function() {
 		this.__$base.css("height", height);
 	};
 
+	View.prototype.remove = function() {
+		this.unbindAll();
+	};
+
 	return View;
 }());
