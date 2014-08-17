@@ -1,4 +1,5 @@
 //#include("/View/View.js");
+//#include("/View/NoteView/NoteViewScopeParser.js");
 //#include("/Service/Markdown.js");
 //#include("/Model/NoteViewTextboxModel.js");
 //#include("/Service/KeyRecognizer.js");
@@ -428,7 +429,7 @@ var NoteViewCursorView = (function() {
 
 					}
 				} else {
-					if (child.classList.contains("NoteViewTextbox-scope-symbolblock")) {
+					if (child.classList.contains(NoteViewScopeParser.IconScopeClass)) {
 						offset += 1;
 					} else {
 						detectXposition(child);

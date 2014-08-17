@@ -278,10 +278,13 @@ h6.Markdown-header {
   margin: 20px 0 10px;
   color: #26c6da;
 }
+.NoteViewTextbox-scope-header3 {
+  color: #26c6da;
+}
 .NoteViewTextbox-base.-edit .NoteViewTextbox-scope-hr {
   border-bottom-color: rgba(38, 198, 218, 0.1);
 }
-.NoteViewTextbox-scope-symbolblock-indent {
+.NoteViewTextbox-scope-indent {
   display: inline-block;
   position: relative;
   color: transparent;
@@ -290,7 +293,7 @@ h6.Markdown-header {
   border-right: 1px dotted transparent;
   text-align: center;
 }
-.NoteViewTextbox-scope-symbolblock-indent .NoteViewTextbox-scope-symbolblock-indent-inner {
+.NoteViewTextbox-scope-indent .NoteViewTextbox-scope-indent-inner {
   display: block;
   position: relative;
   width: 90%;
@@ -299,13 +302,13 @@ h6.Markdown-header {
   margin: 0 auto;
   background: transparent;
 }
-.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-symbolblock-indent {
+.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-indent {
   border-right-color: rgba(255, 152, 0, 0.4);
 }
-.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-symbolblock-indent .NoteViewTextbox-scope-symbolblock-indent-inner {
+.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-indent .NoteViewTextbox-scope-indent-inner {
   background: #e0e0e0;
 }
-.NoteViewTextbox-scope-symbolblock-list {
+.NoteViewTextbox-scope-list {
   display: inline-block;
   position: relative;
   color: transparent;
@@ -314,14 +317,14 @@ h6.Markdown-header {
   text-align: center;
   box-sizing: border-box;
 }
-.NoteViewTextbox-scope-symbolblock-list .NoteViewTextbox-scope-symbolblock-list-inner {
+.NoteViewTextbox-scope-list .NoteViewTextbox-scope-list-inner {
   position: relative;
   width: 0;
   height: 0;
   border: 3px solid #212121;
   border-radius: 3px;
 }
-.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-symbolblock-list .NoteViewTextbox-scope-symbolblock-list-inner {
+.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-list .NoteViewTextbox-scope-list-inner {
   background: #eeeeee;
 }
 .NoteViewTextbox-scope-bold {

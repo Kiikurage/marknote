@@ -293,7 +293,11 @@
 		merge: function(arr) {
 			for (var i = 0, max = arr.length; i < max; i++) {
 				if (this.indexOf(arr[i]) >= 0) continue;
-				this.push(arr[i]);
+				if (arr[i] instanceof HTMLElement) {
+					this.push(arr[i]);
+				} else if (arr[i] instanceof bQuery) {
+					this.merge(arr[i]);
+				}
 			}
 			return this;
 		},
@@ -330,6 +334,8 @@
 				var res = new bQuery();
 				res.push(query);
 				return res;
+			} else if (query instanceof Array) {
+				return (new bQuery()).merge(query);
 			}
 		}
 
@@ -793,6 +799,66 @@ var TabPanelView = (function() {
 
 	return ButtonView;
 }());
+;var NoteViewScopeParser = (function(exports) {
+	var IS_ICON_SCOPE = true;
+
+	exports.IconScopeClass = "NoteViewTextbox-scope-icon";
+
+	exports.convertLineToHTML = function(line) {
+		var scope = [],
+			height = 24,
+			res = "";
+
+		//indent
+		while (line[0] === "\t") {
+			line = line.slice(1);
+			var inner = wrapWithScope("", ["NoteViewTextbox-scope-indent-inner"]);
+			res += wrapWithScope(inner, ["NoteViewTextbox-scope-indent"], IS_ICON_SCOPE);
+		}
+
+		//header
+		var headerLevel = 0;
+		while (line[headerLevel] === "#") {
+			headerLevel++;
+		}
+		if (headerLevel) {
+			scope.push("NoteViewTextbox-scope-header" + headerLevel);
+			height = [65, 62, 20][headerLevel - 1];
+		}
+
+		//list
+		if (line[0] === "-") {
+			line = line.slice(1);
+			var inner = wrapWithScope("", ["NoteViewTextbox-scope-list-inner"]);
+			res += wrapWithScope(inner, ["NoteViewTextbox-scope-list"], IS_ICON_SCOPE);
+		}
+
+		line = line.replace(/\s/g, "&nbsp;");
+
+		line = line.replace(/\*[^\*]*\*/g, function(outer) {
+			return wrapWithScope(outer, ["NoteViewTextbox-scope-bold"]);
+		});
+
+		res += wrapWithScope(line, scope);
+
+		return {
+			html: "<p class='NoteViewTextbox-line'>" + res + "</p>",
+			height: height
+		}
+	};
+
+	function wrapWithScope(text, scope, isIconScope) {
+		var scopes = ["NoteViewTextbox-scope"];
+
+		if (scope) scopes = scopes.concat(scope);
+		if (isIconScope) scopes.push(NoteViewScopeParser.IconScopeClass);
+
+
+		return "<span class='" + scopes.join(" ") + "'>" + text + "</span>";
+	}
+
+	return exports;
+}({}));
 ;var Markdown = (function() {
 	var TokenType = {
 		NormalText: 0,
@@ -1695,7 +1761,7 @@ var NoteViewCursorView = (function() {
 
 					}
 				} else {
-					if (child.classList.contains("NoteViewTextbox-scope-symbolblock")) {
+					if (child.classList.contains(NoteViewScopeParser.IconScopeClass)) {
 						offset += 1;
 					} else {
 						detectXposition(child);
@@ -1717,59 +1783,6 @@ var NoteViewCursorView = (function() {
 
 	return NoteViewCursorView
 }());
-;var NoteViewScopeParser = (function(exports) {
-
-	exports.convertLineToHTML = function(line) {
-		var scope = [],
-			height = 24,
-			res = "";
-
-		while (line[0] === "\t") {
-			line = line.slice(1);
-			var inner = wrapWithScope("", ["NoteViewTextbox-scope-symbolblock-indent-inner"]);
-			res += wrapWithScope(inner, ["NoteViewTextbox-scope-symbolblock", "NoteViewTextbox-scope-symbolblock-indent"]);
-		}
-
-		var headerLevel = 0;
-		while (line[headerLevel] === "#") {
-			headerLevel++;
-		}
-		if (headerLevel) {
-			scope.push("NoteViewTextbox-scope-header" + headerLevel);
-			height = [65, 62, 20][headerLevel - 1];
-		}
-
-		if (line[0] === "-") {
-			line = line.slice(1);
-			scope.push("NoteViewTextbox-scope-list");
-			var inner = wrapWithScope("", ["NoteViewTextbox-scope-symbolblock-list-inner"]);
-			res += wrapWithScope(inner, ["NoteViewTextbox-scope-symbolblock", "NoteViewTextbox-scope-symbolblock-list"]);
-		}
-
-		line = line.replace(/\s/g, "&nbsp;");
-
-		line = line.replace(/\*[^\*]*\*/g, function(outer) {
-			return wrapWithScope(outer, ["NoteViewTextbox-scope-bold"]);
-		});
-
-		res += wrapWithScope(line, scope);
-
-		return {
-			html: "<p class='NoteViewTextbox-line'>" + res + "</p>",
-			height: height
-		}
-	};
-
-	function wrapWithScope(text, scope) {
-		var scopes = ["NoteViewTextbox-scope"];
-
-		if (scope) scopes = scopes.concat(scope);
-
-		return "<span class='" + scopes.join(" ") + "'>" + text + "</span>"
-	}
-
-	return exports;
-}({}));
 ;var NoteViewTextbox = (function() {
 
 	function NoteViewTextbox(cursor) {
@@ -2207,6 +2220,98 @@ var NoteView = (function() {
 
 	return NewFileDialogView;
 }());
+;var TreeViewNodeViewModel = (function() {
+	function TreeViewNodeViewModel() {
+		this.children = [];
+		this.parent = null;
+		this.data = null;
+		this.view = new TreeViewNodeView(this);
+
+		this.update();
+	}
+	IPubSub.implement(TreeViewNodeViewModel.prototype);
+
+	TreeViewNodeViewModel.prototype.appendChild = function(child) {
+		if (this.children.indexOf(child) !== -1) return
+		if (child.parent) chld.parent.removeChild(child);
+
+		this.children.push(child);
+		child.parent = child;
+
+		this.update();
+	};
+
+	TreeViewNodeViewModel.prototype.removeChild = function(child) {
+		var index = this.children.indexOf(child);
+		if (index === -1) return
+
+		this.children.splice(index, 1);
+		child.parent = null;
+
+		this.update();
+	};
+
+	TreeViewNodeViewModel.prototype.update = function() {
+		this.fire("update", this);
+	}
+
+	return TreeViewNodeViewModel;
+}());
+;var TreeView = (function() {
+	function TreeView(root) {
+		this.__$base = $("<div class='TreeView'></div>");
+		root.view.appendTo(this);
+	};
+	extendClass(TreeView, View);
+
+	return TreeView
+}());
+
+var TreeViewNodeView = (function() {
+	function TreeViewNodeView(model) {
+		this.__$base = $("<li></li>");
+		model.bind("update", this.__updateModel, this);
+	};
+	extendClass(TreeViewNodeView, View);
+
+	TreeViewNodeView.prototype.__updateModel = function(model) {
+		this.update(model);
+	};
+
+	TreeViewNodeView.prototype.update = function(model) {
+		console.log("update: " + model.data);
+		var $mainContent = this.delegateUpdateMainContent(model),
+			$childContent = this.delegateUpdateChildContent(model),
+			$totalContent = this.delegateUpdateTotalContent($mainContent, $childContent);
+	};
+
+	TreeViewNodeView.prototype.delegateUpdateMainContent = function(model) {
+		return $("<p>" + model.data + "</p>");
+	};
+
+	TreeViewNodeView.prototype.delegateUpdateChildContent = function(model) {
+		var children = model.children;
+
+		if (!children.length) return $();
+
+		var $container = $("<ul></ul>");
+
+		for (var i = 0, max = children.length; i < max; i++) {
+			children[i].update();
+			children[i].view.appendTo($container);
+		}
+
+		return $container;
+	};
+
+	TreeViewNodeView.prototype.delegateUpdateTotalContent = function($mainContent, $childContent) {
+		this.__$base.children().remove();
+		this.__$base.append($mainContent);
+		this.__$base.append($childContent);
+	};
+
+	return TreeViewNodeView
+}());
 ;/*
 test data
 */
@@ -2279,7 +2384,39 @@ var app = (function() {
 		alertView.appendTo($("body"));
 		app.alertView = alertView;
 
+		root = new TreeViewNodeViewModel();
+		root.data = "root";
 
+		node1 = new TreeViewNodeViewModel();
+		node1.data = "node1";
+		root.appendChild(node1);
+
+		node2 = new TreeViewNodeViewModel();
+		node2.data = "node2";
+		root.appendChild(node2);
+
+		node21 = new TreeViewNodeViewModel();
+		node21.data = "node2-1";
+		node2.appendChild(node21);
+
+		node22 = new TreeViewNodeViewModel();
+		node22.data = {
+			title: "node2-2",
+			text: "Hello World"
+		};
+		node22.view.delegateUpdateMainContent = function(model) {
+			var $title = $("<p>" + model.data.title + "</p>"),
+				$text = $("<div>" + model.data.text + "</div>");
+
+			return $([
+				$title,
+				$text
+			]);
+		};
+		node2.appendChild(node22);
+
+		var treeView = new TreeView(root);
+		treeView.appendTo(sideMenu);
 
 		var savedata = Model.load("test");
 
@@ -2291,7 +2428,6 @@ var app = (function() {
 			app.noteView.bindModel(savedata);
 			app.alertView.show("marknoteへようこそ");
 		}
-
 	};
 
 	app.saveFile = function(ev) {
