@@ -388,6 +388,25 @@
 	});
 }());
 ;(function() {
+	extend(bQuery.prototype, {
+		getBoundingClientRectBy: function(parent) {
+			var $parent = $(parent);
+
+			var gcrChild = this[0].getBoundingClientRect(),
+				gcrParent = $parent[0].getBoundingClientRect();
+
+			return {
+				left: gcrChild.left - gcrParent.left,
+				top: gcrChild.top - gcrParent.top,
+				width: gcrChild.width - gcrParent.width,
+				height: gcrChild.height - gcrParent.height,
+				right: gcrChild.right - gcrParent.right,
+				bottom: gcrChild.bottom - gcrParent.bottom
+			};
+		}
+	});
+}());
+;(function() {
 	var cssValueNormalize = (function() {
 		var regCssNoUnit = /^(?:opacity|zIndex)$/;
 
@@ -1148,9 +1167,11 @@ var TabPanelView = (function() {
 		return this.__lines.length;
 	};
 
-
+	/*------------------------------------------------
+	 *	edit text
+	 */
 	NoteViewTextboxModel.prototype.splice = function(start, end, value) {
-		if (start.row !== end.row && start.column !== end.column) {
+		if (start.row !== end.row) {
 
 			var newLine = this.__lines[start.row].slice(0, start.column) + this.__lines[end.row].slice(end.column);
 			this.__lines.splice(start.row, end.row - start.row + 1, newLine);
@@ -1160,7 +1181,26 @@ var TabPanelView = (function() {
 			var line = this.__lines[start.row],
 				newLine = line.slice(0, start.column) + value + line.slice(end.column);
 			this.__lines[start.row] = newLine;
+
 		}
+
+		this.fire("update");
+	};
+
+	NoteViewTextboxModel.prototype.addNewLine = function(position) {
+		var row = position.row,
+			column = position.column,
+			newLine = "";
+
+		if (this.getLineLength(row) !== column) {
+			var oldLine = this.getLine(row);
+
+			newLine = oldLine.slice(column);
+
+			this.__lines[row] = oldLine.slice(0, column);
+		}
+
+		this.__lines.splice(row + 1, 0, newLine);
 
 		this.fire("update");
 	};
@@ -1230,7 +1270,12 @@ var TabPanelView = (function() {
 
 	return KeyRecognizer;
 }());
-;var BLINK_INTERVAL = 500;
+;var BLINK_INTERVAL = 600;
+
+var DIR = {
+	FORWARD: 0,
+	BACKWARD: 1
+};
 
 var NoteViewCursorView = (function() {
 
@@ -1245,13 +1290,20 @@ var NoteViewCursorView = (function() {
 		this.__$inputReceiver.bind("blur", this.__blur, this, true);
 		this.__$inputReceiver.bind("input", this.__input, this, true);
 
+		this.__$marker = $("<span class='NoteViewCursorView-marker'></span>");
+
 		this.__kr = new KeyRecognizer();
 		this.__kr.listen(this.__$inputReceiver);
 		this.__kr.register({
 			"up": this.__inputMoveUp,
 			"down": this.__inputMoveDown,
 			"left": this.__inputMoveLeft,
-			"right": this.__inputMoveRight
+			"right": this.__inputMoveRight,
+			"enter": this.__inputNewLine,
+			"tab": this.__inputTab,
+			"multibyte_mode": this.__inputMultiByteMode,
+			"backspace": this.__inputBackSpace,
+			"delete": this.__inputDelete,
 		}, this)
 
 		//debug only start
@@ -1271,7 +1323,8 @@ var NoteViewCursorView = (function() {
 			end: {
 				row: 0,
 				column: 0
-			}
+			},
+			direction: DIR.FORWARD
 		};
 
 		this.targetTextBox = null;
@@ -1297,58 +1350,100 @@ var NoteViewCursorView = (function() {
 	};
 
 	NoteViewCursorView.prototype.__inputMoveUp = function(ev) {
-		this.selection.start.row--;
-		this.selection.end.row = this.selection.start.row;
+		this.selection.end.row = this.selection.start.row -= 1;
 		this.selection.end.column = this.selection.start.column;
 
-		this.__selectionNormalize();
+		this.__selectionNormalize(null, null, false);
 	};
 
 	NoteViewCursorView.prototype.__inputMoveDown = function(ev) {
-		this.selection.start.row++;
-		this.selection.end.row = this.selection.start.row;
+		this.selection.end.row = this.selection.start.row += 1;
 		this.selection.end.column = this.selection.start.column;
 
-		this.__selectionNormalize();
+		this.__selectionNormalize(null, null, false);
 	};
 
 	NoteViewCursorView.prototype.__inputMoveLeft = function(ev) {
-		this.selection.start.column--;
-		if (this.selection.start.column < 0) {
-			if (this.selection.start.row === 0) {
-				this.selection.start.column = 0
-			} else {
-				this.selection.start.row--;
-				this.selection.start.column = this.targetTextBox.model.getLine(this.selection.start.row).length
-			}
-		}
-
+		this.selection.end.column = this.selection.start.column -= 1;
 		this.selection.end.row = this.selection.start.row;
-		this.selection.end.column = this.selection.start.column;
 
-		this.__selectionNormalize();
+		this.__selectionNormalize(null, null, true);
 	};
 
 	NoteViewCursorView.prototype.__inputMoveRight = function(ev) {
-		this.selection.start.column++;
-		if (this.selection.start.column > this.targetTextBox.model.getLineLength(this.selection.start.row)) {
-			if (this.selection.start.row === this.targetTextBox.model.getLinesCount()) {
-				this.selection.start.column = this.targetTextBox.model.getLineLength()
-			} else {
-				this.selection.start.row++;
-				this.selection.start.column = 0;
-			}
-		}
+		this.selection.end.row = this.selection.start.row;
+		this.selection.end.column = this.selection.start.column += 1;
+
+		this.__selectionNormalize(null, null, true);
+	};
+
+	NoteViewCursorView.prototype.__inputNewLine = function(ev) {
+		this.targetTextBox.model.addNewLine(this.selection.start);
+
+		this.selection.start.row++;
+		this.selection.start.column = 0;
 
 		this.selection.end.row = this.selection.start.row;
 		this.selection.end.column = this.selection.start.column;
 
-		this.__selectionNormalize();
-	}
+		this.__selectionNormalize(null, null);
+	};
+
+	NoteViewCursorView.prototype.__inputTab = function(ev) {
+		this.inputText("\t");
+		ev.preventDefault();
+	};
+
+	NoteViewCursorView.prototype.__inputBackSpace = function(ev) {
+		this.selection.start.column -= 1;
+		this.__selectionNormalize(null, null, true);
+
+		this.targetTextBox.model.splice(this.selection.start, this.selection.end, "");
+
+		this.selection.end.row = this.selection.start.row;
+		this.selection.end.column = this.selection.start.column;
+		this.__selectionNormalize(null, null, true);
+
+		ev.preventDefault();
+	};
+
+	NoteViewCursorView.prototype.__inputDelete = function(ev) {
+		this.selection.end.column += 1;
+		this.__selectionNormalize(null, null, true);
+
+		this.targetTextBox.model.splice(this.selection.start, this.selection.end, "");
+
+		this.selection.end.row = this.selection.start.row;
+		this.selection.end.column = this.selection.start.column;
+		this.__selectionNormalize(null, null, true);
+
+		ev.preventDefault();
+	};
+
+	NoteViewCursorView.prototype.__inputMultiByteMode = function(ev) {
+		this.__$inputReceiver.unbind("input", this.__input, this, true);
+		this.__$inputReceiver.bind("input", this.__inputInMultiByteMode, this, true);
+		this.__$inputReceiver.bind("keyup", this.__keyupInMultiByteMode, this, true);
+	};
+
+	NoteViewCursorView.prototype.__inputInMultiByteMode = function(ev) {
+		this.inputText(this.__$inputReceiver.val(), true);
+	};
+
+	NoteViewCursorView.prototype.__keyupInMultiByteMode = function(ev) {
+		if (ev.keyCode === KEYCODE.ENTER) {
+			this.inputText(this.__$inputReceiver.val());
+			this.__$inputReceiver.val("");
+			this.__$inputReceiver.bind("input", this.__input, this, true);
+			this.__$inputReceiver.unbind("input", this.__inputInMultiByteMode, this, true);
+			this.__$inputReceiver.unbind("keyup", this.__keyupInMultiByteMode, this, true);
+		}
+	};
+
 	/*-------------------------------------------------
 	 *	Input
 	 */
-	NoteViewCursorView.prototype.inputText = function(text) {
+	NoteViewCursorView.prototype.inputText = function(text, flagNOForward) {
 		if (!this.targetTextBox) return;
 
 		var start = this.selection.start,
@@ -1356,10 +1451,15 @@ var NoteViewCursorView = (function() {
 
 		this.targetTextBox.model.splice(start, end, text);
 
-		end.row = start.row;
-		end.column = start.column += text.length;
+		if (flagNOForward) {
+			end.row = start.row;
+			end.column = start.column + text.length;
+		} else {
+			end.row = start.row;
+			end.column = start.column += text.length;
+		}
 
-		this.__selectionNormalize();
+		this.__selectionNormalize(null, null, true);
 	};
 
 	/*-------------------------------------------------
@@ -1395,12 +1495,15 @@ var NoteViewCursorView = (function() {
 	};
 
 	NoteViewCursorView.prototype.show = function() {
-		if (!this.__blinkTimerID) {
-			var that = this;
-			this.__blinkTimerID = setInterval(function() {
-				that.blink();
-			}, BLINK_INTERVAL);
+		if (this.__blinkTimerID) {
+			clearInterval(this.__blinkTimerID);
+			this.__blinkTimerID = null;
 		}
+
+		var that = this;
+		this.__blinkTimerID = setInterval(function() {
+			that.blink();
+		}, BLINK_INTERVAL);
 
 		this.__$base.addClass("-show");
 	};
@@ -1412,13 +1515,13 @@ var NoteViewCursorView = (function() {
 	/*-------------------------------------------------
 	 *	selection
 	 */
-	NoteViewCursorView.prototype.__selectionNormalize = function() {
+	NoteViewCursorView.prototype.__selectionNormalize = function(start, end, flagChangeLine) {
 		if (!this.targetTextBox) return;
 
-		var start = this.selection.start,
-			end = this.selection.end;
-		this.__positionNormalize(start);
-		this.__positionNormalize(end);
+		var start = start || this.selection.start,
+			end = end || this.selection.end;
+		this.__positionNormalize(start, flagChangeLine);
+		this.__positionNormalize(end, flagChangeLine);
 
 		//swap if start is after than end
 		if (start.row > end.row || (start.row === end.row && start.column > end.column)) {
@@ -1434,22 +1537,87 @@ var NoteViewCursorView = (function() {
 		this.update();
 	};
 
-	NoteViewCursorView.prototype.__positionNormalize = function(position) {
+	NoteViewCursorView.prototype.__positionNormalize = function(position, flagChangeLine) {
 		if (!this.targetTextBox) return;
 
-		var lines = this.targetTextBox.model.getLines();
+		var model = this.targetTextBox.model;
 
 		if (position.row < 0) {
 			position.row = 0;
 			position.column = 0;
 			return;
 
-		} else if (position.row >= lines.length) {
-			position.row = lines.length - 1;
-			position.column = lines[lines.length - 1].length;
+		} else if (position.row >= model.getLinesCount()) {
+			position.row = model.getLinesCount() - 1;
+			position.column = model.getLineLength(position.row);
 			return;
 
 		}
+
+
+		if (!flagChangeLine) {
+			if (position.column < 0) {
+				position.column = 0
+			} else if (position.column > model.getLineLength(position.row)) {
+				position.column = model.getLineLength(position.row);
+			}
+			return;
+		}
+
+		while (position.column < 0) {
+
+			if (position.row === 0) {
+				position.row = 0;
+				position.column = 0;
+				return;
+			}
+
+			position.row--;
+			position.column += model.getLineLength(position.row) + 1; //+1 for CRLF
+		}
+
+		while (position.column > model.getLineLength(position.row)) {
+
+			if (position.row === model.getLinesCount() - 1) {
+				position.row = model.getLinesCount() - 1;
+				position.column = model.getLineLength(model.getLinesCount() - 1);
+				return;
+			}
+
+			position.column -= model.getLineLength(position.row) + 1; //+1 for CRLF
+			position.row++;
+		}
+	};
+
+	NoteViewCursorView.prototype.setSelection = function(startRow, startColumn, endRow, endColumn) {
+		var start = this.selection.start,
+			end = this.selection.end;
+
+		if (arguments.length === 4) {
+
+			start.row = arguments[0];
+			start.column = arguments[1];
+			end.row = arguments[2];
+			end.column = arguments[3];
+			return;
+
+		} else if (typeof arguments[0] === "number") {
+
+			start.row = arguments[0];
+			start.column = arguments[1];
+			end.row = arguments[0];
+			end.column = arguments[1];
+
+		} else {
+
+			start.row = arguments[0].row;
+			start.column = arguments[0].column;
+			end.row = arguments[1].row;
+			end.column = arguments[1].column;
+
+		}
+
+		this.update();
 	};
 
 	/*-------------------------------------------------
@@ -1461,11 +1629,19 @@ var NoteViewCursorView = (function() {
 		var renderingInfo = this.targetTextBox.renderingInfo,
 			start = this.selection.start,
 			end = this.selection.end,
+			position,
 			x, y, h;
 
-		y = renderingInfo[start.row].top;
-		h = renderingInfo[start.row].height;
-		x = Math.min(start.column, this.targetTextBox.model.getLineLength(start.row)) * h / 3;
+		if (this.selection.direction === DIR.FORWARD) {
+			position = end;
+		} else {
+			position = start;
+		}
+
+		this.__positionNormalize(position, false);
+		y = renderingInfo[position.row].top;
+		h = renderingInfo[position.row].height;
+		x = this.convertPointToScreenPosition(position) - 1;
 
 		this.__$base.css({
 			left: x,
@@ -1474,41 +1650,126 @@ var NoteViewCursorView = (function() {
 		});
 
 		this.show();
+		document.title = "Lines " + position.row + ", Columns " + position.column;
 	};
 
-	//指定された座標が論理行で何行目何文字目かを返す
-	// NoteViewCursorView.prototype.getCursorPositionByScreenPosition = function(x, y) {
-	// 	var lines = this.model.text.split("\n"),
-	// 		$lineElements = this.__$textLayer.children(),
-	// 		row = 0,
-	// 		column = 0;
+	NoteViewCursorView.prototype.convertPointToScreenPosition = function(position) {
+		if (!this.targetTextBox) return;
 
-	// 	//y方向(row)
-	// 	for (var max = $lineElements.length; row < max; row++) {
-	// 		if (this.renderingInfo[row].top > y) break
-	// 	}
-	// 	row--;
+		var renderingInfo = this.targetTextBox.renderingInfo,
+			row = position.row,
+			column = position.column,
+			x, y;
 
-	// 	//範囲外
-	// 	if (row < 0 || row >= lines.length) {
-	// 		return {
-	// 			row: row,
-	// 			column: -1
-	// 		};
-	// 	}
+		y = renderingInfo[row].top;
 
-	// 	//x方向(column)
-	// 	var parentScope = $lineElements[row];
-	// 	console.dir(parentScope.childNodes[0].childNodes[0])
+		var offset = 0,
+			marker = this.__$marker[0],
+			flagFinish = false,
+			NODETYPE_TEXT = 3;
 
-	// 	return {
-	// 		row: row,
-	// 		column: column
-	// 	};
-	// };
+		function detectXposition(rootNode) {
+			var children = rootNode.childNodes
+			for (var i = 0, max = children.length; i < max; i++) {
+				var child = children[i];
+
+				if (offset === column) {
+					rootNode.insertBefore(marker, child);
+					flagFinish = true;
+					return;
+				}
+
+				if (child.nodeType === NODETYPE_TEXT) {
+					if (offset === column) {
+						rootNode.insertBefore(marker, child);
+						flagFinish = true;
+						return;
+
+					} else if (offset + child.length > column) {
+						rootNode.insertBefore(marker, child.splitText(column - offset));
+						flagFinish = true;
+						return;
+
+					} else {
+						offset += child.length;
+
+					}
+				} else {
+					if (child.classList.contains("NoteViewTextbox-scope-symbolblock")) {
+						offset += 1;
+					} else {
+						detectXposition(child);
+						if (flagFinish) return
+					}
+				}
+			}
+		}
+
+		this.__$marker.remove();
+		detectXposition(renderingInfo[row].node);
+
+		if (!flagFinish) {
+			this.__$marker.appendTo(renderingInfo[row].node);
+		}
+
+		return this.__$marker.getBoundingClientRectBy(renderingInfo[row].node).left;
+	};
 
 	return NoteViewCursorView
 }());
+;var NoteViewScopeParser = (function(exports) {
+
+	exports.convertLineToHTML = function(line) {
+		var scope = [],
+			height = 24,
+			res = "";
+
+		while (line[0] === "\t") {
+			line = line.slice(1);
+			var inner = wrapWithScope("", ["NoteViewTextbox-scope-symbolblock-indent-inner"]);
+			res += wrapWithScope(inner, ["NoteViewTextbox-scope-symbolblock", "NoteViewTextbox-scope-symbolblock-indent"]);
+		}
+
+		var headerLevel = 0;
+		while (line[headerLevel] === "#") {
+			headerLevel++;
+		}
+		if (headerLevel) {
+			scope.push("NoteViewTextbox-scope-header" + headerLevel);
+			height = [65, 62, 20][headerLevel - 1];
+		}
+
+		if (line[0] === "-") {
+			line = line.slice(1);
+			scope.push("NoteViewTextbox-scope-list");
+			var inner = wrapWithScope("", ["NoteViewTextbox-scope-symbolblock-list-inner"]);
+			res += wrapWithScope(inner, ["NoteViewTextbox-scope-symbolblock", "NoteViewTextbox-scope-symbolblock-list"]);
+		}
+
+		line = line.replace(/\s/g, "&nbsp;");
+
+		line = line.replace(/\*[^\*]*\*/g, function(outer) {
+			return wrapWithScope(outer, ["NoteViewTextbox-scope-bold"]);
+		});
+
+		res += wrapWithScope(line, scope);
+
+		return {
+			html: "<p class='NoteViewTextbox-line'>" + res + "</p>",
+			height: height
+		}
+	};
+
+	function wrapWithScope(text, scope) {
+		var scopes = ["NoteViewTextbox-scope"];
+
+		if (scope) scopes = scopes.concat(scope);
+
+		return "<span class='" + scopes.join(" ") + "'>" + text + "</span>"
+	}
+
+	return exports;
+}({}));
 ;var NoteViewTextbox = (function() {
 
 	function NoteViewTextbox(cursor) {
@@ -1627,12 +1888,15 @@ var NoteViewCursorView = (function() {
 	 */
 	NoteViewTextbox.prototype.setFocus = function() {
 		this.cursor.attach(this);
+		this.cursor.setSelection(0, 0);
 
 		this.fire("update", this);
+		this.__$base.addClass("-edit");
 	};
 
 	NoteViewTextbox.prototype.lostFocus = function() {
 		this.cursor.detach(this);
+		this.__$base.removeClass("-edit");
 
 		if (this.model.text.replace(/\s*/g, "") === "") this.remove();
 	};
@@ -1656,14 +1920,15 @@ var NoteViewCursorView = (function() {
 
 		this.renderingInfo = [];
 		for (var i = 0, max = lines.length; i < max; i++) {
-			var lineRenderingInfo = this.convertLineToHTML(lines[i]);
+			var lineRenderingInfo = NoteViewScopeParser.convertLineToHTML(lines[i]),
+				$line = $(lineRenderingInfo.html);
 
 			this.renderingInfo.push({
 				top: top,
-				height: lineRenderingInfo.height
+				height: lineRenderingInfo.height,
+				node: $line[0]
 			});
 
-			var $line = $(lineRenderingInfo.html);
 			this.__$textLayer.append($line);
 			$line.css({
 				top: top,
@@ -1679,7 +1944,6 @@ var NoteViewCursorView = (function() {
 	NoteViewTextbox.prototype.updateBase = function() {
 		var model = this.model;
 
-		this.__$base.toggleClass("-edit", model.focus);
 		this.__$base.css({
 			left: model.x,
 			top: model.y,
@@ -1688,20 +1952,408 @@ var NoteViewCursorView = (function() {
 		});
 	};
 
-	NoteViewTextbox.prototype.convertLineToHTML = function(line) {
-		return {
-			html: "<p class='NoteViewTextbox-line'>" + this.wrapWithScope(line) + "</p>",
-			height: 20
-		}
-	};
 
-	NoteViewTextbox.prototype.wrapWithScope = function(text, scope) {
-		var scopes = ["NoteViewTextBox-scope"];
-
-		if (scope) scopes = scopes.concat(scope);
-
-		return "<span class='" + scopes.join(" ") + "'>" + text + "</span>"
-	};
 
 	return NoteViewTextbox;
 }());
+;var NoteViewPageModel = (function() {
+
+	function NoteViewPageModel() {
+		this._textboxes = [];
+	}
+	extendClass(NoteViewPageModel, Model);
+
+	NoteViewPageModel.__record("textboxes");
+
+	NoteViewPageModel.prototype.appendTextbox = function(model) {
+		if (this.textboxes.indexOf(model) === -1) {
+			this.textboxes.push(model);
+		}
+
+		model.bind("update", this.update, this)
+
+		this.fire("update");
+	};
+
+	NoteViewPageModel.prototype.removeTextbox = function(model) {
+		var index = this.textboxes.indexOf(model);
+		if (index === -1) return;
+		this.textboxes.splice(index, 1);
+
+		model.unbind("update", this.update, this)
+
+		this.fire("update");
+	};
+
+	NoteViewPageModel.prototype.update = function() {
+		this.fire("update");
+	};
+
+	return NoteViewPageModel;
+}());
+;GRID_SIZE = 20;
+var NoteView = (function() {
+
+	function NoteView(model) {
+		this.super();
+		this.__$base = $("<div class='NoteView-base'></div>");
+		this.__$base.bind("click", this.__click, this, true);
+
+		this.cursor = new NoteViewCursorView();
+	}
+	extendClass(NoteView, View);
+
+	NoteView.prototype.bindModel = function(model) {
+		this.__$base.children().remove();
+
+		this.model = model;
+		model.view = this;
+
+		this.model.bind("update", this.update, this);
+
+		var models = model.textboxes;
+		for (var i = 0, max = models.length; i < max; i++) {
+			this.__addTextbox(models[i]);
+		}
+
+		this.update();
+	};
+
+	NoteView.prototype.__click = function(ev) {
+		var textbox = this.__addTextbox(),
+			x = Math.round(ev.offsetX / GRID_SIZE) * GRID_SIZE - 30,
+			y = Math.round(ev.offsetY / GRID_SIZE) * GRID_SIZE - 50;
+
+		if (x < 0) x = 0;
+		if (y < 0) y = 0;
+
+		textbox.model.x = x;
+		textbox.model.y = y;
+		textbox.setFocus();
+	};
+
+	NoteView.prototype.__addTextbox = function(model) {
+		var model = model || new NoteViewTextboxModel(),
+			textbox = new NoteViewTextbox(this.cursor);
+
+		textbox.bindModel(model);
+		textbox.appendTo(this);
+		this.model.appendTextbox(model);
+
+		textbox.bind("remove", this.__removeTextbox, this);
+
+		return textbox;
+	};
+
+	NoteView.prototype.__removeTextbox = function(textbox) {
+		this.model.removeTextbox(textbox.model);
+	};
+
+	NoteView.prototype.update = function() {
+		this.fire("update");
+	};
+
+	return NoteView;
+}());
+;;var AlertView = (function() {
+
+	function AlertView() {
+		this.super();
+
+		this.__$base = $("<div class='AlertView-base'></div>");
+
+		this.__$text = $("<span class='AlertView-text'></span>");
+		this.__$text.appendTo(this.__$base)
+	}
+	extendClass(AlertView, View);
+
+	AlertView.prototype.show = function(text, duration) {
+		this.__$text.text(text);
+		this.__$base.addClass("-show");
+
+		var that = this;
+		setTimeout(function() {
+			that.hide()
+		}, duration || 3000);
+	};
+
+	AlertView.prototype.showError = function(text, duration) {
+		this.__$base.addClass("-error");
+		this.show(text, duration);
+	};
+
+	AlertView.prototype.hide = function(text) {
+		this.__$base.removeClass("-show");
+		this.__$base.removeClass("-error");
+	};
+
+	return AlertView;
+}());
+;var DialogView = (function() {
+
+	function DialogView() {
+		this.super();
+
+		this.__$outer = $("<div class='DialogView-outer'></div>");
+		this.__$outer.bind("click", this.__clickOuter, this, true);
+
+		this.__$base = $("<div class='DialogView-base'></div>");
+		this.__$base.appendTo(this.__$outer);
+		this.__$base.bind("click", this.__clickBase, this, true);
+
+		this.__$header = $("<header class='DialogView-header'></header>");
+		this.__$header.appendTo(this.__$base);
+
+		this.__$title = $("<span class='DialogView-title'>ダイアログタイトル</span>");
+		this.__$title.appendTo(this.__$header);
+
+		this.__$body = $("<div class='DialogView-body'></div>");
+		this.__$body.appendTo(this.__$base);
+
+		this.__$footer = $("<footer class='DialogView-footer'></footer>");
+		this.__$footer.appendTo(this.__$base);
+
+		this.__btnCancel = new ButtonView("Cancel");
+		this.__btnCancel.appendTo(this.__$footer);
+		this.__btnCancel.bind("click", this.__clickBtnCancel, this);
+
+		this.__btnOK = new ButtonView("OK");
+		this.__btnOK.appendTo(this.__$footer);
+		this.__btnOK.bind("click", this.__clickBtnOK, this);
+	}
+	extendClass(DialogView, View);
+
+	//override
+	DialogView.prototype.append = DialogView.prototype.appendChild = function(child) {
+		child.appendTo(this.__$body);
+	};
+
+	//override
+	DialogView.prototype.appendTo = function(parent) {
+		parent.appendChild(this.__$outer);
+	};
+
+	/*-------------------------------
+	 * イベントハンドラ
+	 */
+	DialogView.prototype.__clickOuter = function(ev) {
+		ev.stopPropagation();
+		this.fire("cancel", this.fire);
+		this.fadeOut();
+	};
+
+	DialogView.prototype.__clickBase = function(ev) {
+		ev.stopPropagation();
+	};
+
+	DialogView.prototype.__clickBtnOK = function(ev) {
+		ev.stopPropagation();
+		this.fire("success", this.fire);
+		this.fadeOut();
+	};
+
+	DialogView.prototype.__clickBtnCancel = function(ev) {
+		ev.stopPropagation();
+		this.fire("cancel", this.fire);
+		this.fadeOut();
+	};
+
+	/*-------------------------------
+	 * 表示非表示
+	 */
+	DialogView.prototype.show = function() {
+		this.__$outer.addClass("-show");
+		this.__$outer.css("opacity", "");
+	};
+
+	DialogView.prototype.hide = function() {
+		this.__$outer.removeClass("-show");
+		this.__$outer.css("opacity", "");
+	};
+
+	DialogView.prototype.fadeOut = function() {
+		this.__$outer.animate(function(x) {
+			this.css("opacity", 1.0 - x);
+		}, 100);
+		this.__$outer.one("AnimationCompleted", this.hide, this);
+	};
+
+	DialogView.prototype.fadeIn = function() {
+		this.__$outer.css("opacity", 0);
+		this.__$outer.addClass("-show");
+		this.__$outer.animate(function(x) {
+			this.css("opacity", x);
+		}, 100);
+		this.__$outer.one("AnimationCompleted", this.show, this);
+	};
+
+	DialogView.prototype.title = function(title) {
+		this.__$title.text(title);
+	}
+
+	return DialogView;
+}());
+;var NewFileDialogView = (function() {
+
+	function NewFileDialogView() {
+		this.super();
+		this.title("新規ファイルを作成");
+
+		this.__$input = "";
+
+		this.__$body.append($("<span>編集中のノートは失われてしまいます。よろしいですか？</span>"));
+	}
+	extendClass(NewFileDialogView, DialogView);
+
+	return NewFileDialogView;
+}());
+;/*
+test data
+*/
+var sample = '{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array","value":[{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":0},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"#Marknote\\nマークダウンで手軽に綺麗にノートをとれるウェブアプリ\\nver. 0.1.1\\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":140},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#実装済みの機能\\n\\t-テキストエディット\\n\\t\\t-対応しているmarkdown記法\\n\\t\\t\\t-# ヘッダ\\n\\t\\t\\t\\tヘッダは#1個のみ。\\n\\t\\t\\t\\tインデントのレベルでヘッダレベルを調整\\n\\t\\t\\t-- 箇条書き\\n\\t-テキストボックスの再配置\\n\\t-セーブ/ロード\\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":680},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#プロジェクトの情報\\n-開発者 きくらげ(twitter: @mr_temperman)\\n-github https://github.com/kikura-yuichiro/marknote"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":420},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#今後つくろうと思っている機能\\n\\t-markdown記法の拡張\\n\\t\\t-(画像)[url]による画像の挿入\\n\\t\\t-表組み機能\\t\\n\\t\\t\\t-表組みはmarkdownとしてではなく実装したい\\n\\t-Export機能\\n\\t\\t-PDF/HTML/MD\\n\\t-ブック管理機能"},"_focus":{"type":"native","value":false}}}]}}}';
+
+
+var app = (function() {
+
+	var app = {};
+
+	app.init = function() {
+		var toolbar = new ToolbarView();
+		toolbar.setID("toolbar");
+		toolbar.append($("#logo"));
+		toolbar.insertBefore($("#maincontainer"));
+		app.toolbar = toolbar;
+
+		var btnNewFile = new ButtonView("新規作成(&#8963;&#8984;N)");
+		btnNewFile.appendTo(toolbar);
+		btnNewFile.bind("click", app.newFile, this);
+		app.btnNewFile = btnNewFile;
+
+		var btnOpen = new ButtonView("開く(&#8984;O)");
+		btnOpen.appendTo(toolbar);
+		btnOpen.bind("click", app.openFile, app);
+		app.btnOpen = btnOpen;
+
+		var btnSave = new ButtonView("保存(&#8984;S)");
+		btnSave.appendTo(toolbar);
+		btnSave.bind("click", app.saveFile, app);
+		app.btnSave = btnSave;
+
+		var btnImport = new ButtonView("Import");
+		btnImport.appendTo(toolbar);
+		btnImport.bind("click", app.importFile, app);
+		app.btnImport = btnImport;
+
+		var btnExport = new ButtonView("Export");
+		btnExport.appendTo(toolbar);
+		btnExport.bind("click", app.exportFile, app);
+		app.btnExport = btnExport;
+
+		var sideMenu = new SideMenuView();
+		sideMenu.setID("sidemenu");
+		sideMenu.__$base.css("marginLeft", -200);
+		sideMenu.appendTo($("#maincontainer"));
+		app.sideMenu = sideMenu;
+
+		var btnToggleSideMenu = new ButtonView("メニューの開閉(&#8963;&#8984;T)");
+		btnToggleSideMenu.appendTo(toolbar);
+		btnToggleSideMenu.bind("click", app.toggleSideMenu, app);
+		app.btnToggleSideMenu = btnToggleSideMenu;
+
+		var noteView = new NoteView();
+		noteView.setID("noteview");
+		noteView.appendTo($("#maincontainer"));
+		app.noteView = noteView;
+
+		var kr = new KeyRecognizer();
+		kr.listen(document.body);
+		kr.register({
+			"cmd+S": app.saveFile,
+			"cmd+O": app.openFile,
+			"ctrl+cmd+N": app.newFile,
+			"ctrl+cmd+T": app.toggleSideMenu,
+		}, app);
+		app.kr = kr;
+
+		var alertView = new AlertView();
+		alertView.appendTo($("body"));
+		app.alertView = alertView;
+
+
+
+		var savedata = Model.load("test");
+
+		if (savedata) {
+			app.noteView.bindModel(savedata);
+			app.alertView.show("読み込みました");
+		} else {
+			savedata = Model.convertFromNativeObject(JSON.parse(sample));
+			app.noteView.bindModel(savedata);
+			app.alertView.show("marknoteへようこそ");
+		}
+
+	};
+
+	app.saveFile = function(ev) {
+
+		app.noteView.model.save("test");
+		app.alertView.show("保存しました");
+		if (ev) ev.preventDefault();
+	};
+
+	app.openFile = function(ev) {
+		var savedata = Model.load("test");
+
+		if (!savedata) {
+			app.alertView.showError("セーブデータが存在しません");
+			return;
+		}
+		app.noteView.bindModel(savedata);
+		app.alertView.show("読み込みました");
+
+		if (ev) ev.preventDefault();
+	};
+
+	app.newFile = function(ev) {
+		var dialog = new NewFileDialogView()
+		dialog.appendTo($("body"));
+		dialog.one("success", app.createNewFile, app);
+		dialog.fadeIn();
+	};
+
+	app.createNewFile = function(fileName) {
+		app.alertView.show("新規作成");
+		app.noteView.bindModel(new NoteViewPageModel());
+	};
+
+	app.importFile = function(ev) {
+		app.alertView.show("Import(未実装)");
+
+		if (ev) ev.preventDefault();
+	};
+
+	app.exportFile = function(ev) {
+		app.alertView.show("Export(未実装)");
+
+		if (ev) ev.preventDefault();
+	};
+
+	app.toggleSideMenu = function(ev) {
+		var sideMenu = app.sideMenu;
+
+		if (sideMenu.__$base.css("marginLeft") === -200) {
+			sideMenu.__$base.animate(function(x) {
+				this.css("marginLeft", -200 * (1 - x * x) + "px");
+			}, 100);
+		} else {
+			sideMenu.__$base.animate(function(x) {
+				this.css("marginLeft", -200 * x * x + "px");
+			}, 100);
+		}
+	};
+
+	window.bind("DOMContentLoaded", app.init, app, true);
+
+	return app;
+}());
+;

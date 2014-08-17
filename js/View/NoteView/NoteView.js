@@ -1,6 +1,5 @@
 //#include("/View/View.js");
 //#include("/View/NoteView/NoteViewTextbox.js");
-//#include("/View/NoteView/NoteViewInputReceiver.js");
 //#include("/View/NoteView/NoteViewCursorView.js");
 //#include("/Model/NoteViewPageModel.js");
 

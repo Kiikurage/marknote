@@ -2,6 +2,7 @@
 //#include("/View/NoteView/NoteViewCursorView.js");
 //#include("/Service/Markdown.js");
 //#include("/Model/NoteViewTextboxModel.js");
+//#include("/View/NoteView/NoteViewScopeParser.js");
 
 var NoteViewTextbox = (function() {
 
@@ -121,12 +122,15 @@ var NoteViewTextbox = (function() {
 	 */
 	NoteViewTextbox.prototype.setFocus = function() {
 		this.cursor.attach(this);
+		this.cursor.setSelection(0, 0);
 
 		this.fire("update", this);
+		this.__$base.addClass("-edit");
 	};
 
 	NoteViewTextbox.prototype.lostFocus = function() {
 		this.cursor.detach(this);
+		this.__$base.removeClass("-edit");
 
 		if (this.model.text.replace(/\s*/g, "") === "") this.remove();
 	};
@@ -150,14 +154,15 @@ var NoteViewTextbox = (function() {
 
 		this.renderingInfo = [];
 		for (var i = 0, max = lines.length; i < max; i++) {
-			var lineRenderingInfo = this.convertLineToHTML(lines[i]);
+			var lineRenderingInfo = NoteViewScopeParser.convertLineToHTML(lines[i]),
+				$line = $(lineRenderingInfo.html);
 
 			this.renderingInfo.push({
 				top: top,
-				height: lineRenderingInfo.height
+				height: lineRenderingInfo.height,
+				node: $line[0]
 			});
 
-			var $line = $(lineRenderingInfo.html);
 			this.__$textLayer.append($line);
 			$line.css({
 				top: top,
@@ -173,7 +178,6 @@ var NoteViewTextbox = (function() {
 	NoteViewTextbox.prototype.updateBase = function() {
 		var model = this.model;
 
-		this.__$base.toggleClass("-edit", model.focus);
 		this.__$base.css({
 			left: model.x,
 			top: model.y,
@@ -182,20 +186,7 @@ var NoteViewTextbox = (function() {
 		});
 	};
 
-	NoteViewTextbox.prototype.convertLineToHTML = function(line) {
-		return {
-			html: "<p class='NoteViewTextbox-line'>" + this.wrapWithScope(line) + "</p>",
-			height: 20
-		}
-	};
 
-	NoteViewTextbox.prototype.wrapWithScope = function(text, scope) {
-		var scopes = ["NoteViewTextBox-scope"];
-
-		if (scope) scopes = scopes.concat(scope);
-
-		return "<span class='" + scopes.join(" ") + "'>" + text + "</span>"
-	};
 
 	return NoteViewTextbox;
 }());
