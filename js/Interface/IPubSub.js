@@ -90,7 +90,7 @@ var IPubSub = (function(exports) {
 			var nativeCallback = nativeCallbackList[type];
 			if (nativeCallback) {
 				publisher.removeEventListener(type, nativeCallback);
-				delete nativeCallbackList[type];
+				nativeCallback = nativeCallbackList[type] = null;
 			}
 		}
 
@@ -126,35 +126,6 @@ var IPubSub = (function(exports) {
 		callbackList[type] = firedArr;
 	};
 
-	exports.unbindAll = function(target) {
-		unbindAllForPublisher(target);
-		unbindAllForSubscriber(target);
-	};
-
-	function unbindAllForPublisher(publisher) {
-		var publisherID = getPublisherId(publisher);
-		if (!publisherID) return;
-
-		//remove nativeCallback
-		var nativeCallbackList = nativeCallbackDict[publisherID];
-		if (nativeCallbackList) {
-			for (var type in nativeCallbackList) {
-				if (!nativeCallbackList.hasOwnProperty(type)) continue;
-				var nativeCallback = nativeCallbackList[type];
-				if (nativeCallback) {
-					publisher.removeEventListener(type, nativeCallback);
-				}
-			}
-		}
-
-		delete callbackDict[publisherID];
-		delete publisherList[publisherID];
-	};
-
-	function unbindAllForSubscriber(subscriber) {
-
-	};
-
 	exports.implement = function(target) {
 		target.bind = function(type, fn, context, isNative) {
 			IPubSub.bind(this, type, fn, context, isNative);
@@ -173,10 +144,6 @@ var IPubSub = (function(exports) {
 			args.push.apply(args, arguments);
 			args.shift();
 			IPubSub.fire(this, type, args);
-			return this;
-		};
-		target.unbindAll = function() {
-			IPubSub.unbindAll(this);
 			return this;
 		};
 	};
