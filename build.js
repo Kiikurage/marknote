@@ -274,7 +274,6 @@
 				}
 			};
 		}
-
 	};
 
 	exports.implement = function(target) {
@@ -372,7 +371,7 @@
 		},
 		map: function(fn) {
 			for (var i = 0, max = this.length; i < max; i++) {
-				fn(this[i]);
+				fn(this[i], i);
 			}
 			return this;
 		},
@@ -559,10 +558,22 @@
 		},
 		toggleClass: function(klass, flag) {
 			if (arguments.length == 2) {
-				if (flag) {
-					return this.addClass(klass)
+				if (typeof flag === "boolean") {
+					if (flag) {
+						return this.addClass(klass)
+					} else {
+						return this.removeClass(klass)
+					}
 				} else {
-					return this.removeClass(klass)
+					this.map(function(node) {
+						if (node.classList.contains(klass)) {
+							node.classList.remove(klass);
+							node.classList.add(flag);
+						} else {
+							node.classList.add(klass);
+							node.classList.remove(flag);
+						}
+					});
 				}
 			} else {
 				this.map(function(node) {
@@ -628,13 +639,25 @@
 	});
 }());
 ;(function() {
+	var easing = {
+		easeInOutQuint: function(t, b, c, d) {
+			x = t / d;
+			return x > 0.5 ?
+				1 - 8 * (x -= 1) * x * x * x :
+				8 * x * x * x * x;
+		}
+	};
+
 	extend(bQuery.prototype, {
-		animate: function(fn, duration) {
+		animate: function(fn, duration, easingType) {
 
 			var that = this,
+				duration = duration || 300,
+				easingType = easingType || "easeInOutQuint",
 				core = function() {
 					var n = +(new Date()),
-						x = (n - s > duration) ? 1 : (n - s) / duration;
+						x = (n - s > duration) ? 1 : easing[easingType](n - s, 0, 1, duration)
+
 
 					fn.call(that, x);
 
@@ -672,6 +695,60 @@
 			}, duration);
 
 			return this;
+		}
+	});
+
+	extend(bQuery.prototype, {
+		slideUp: function(duration) {
+			var originalHeights = [],
+				that = this;
+
+			this.map(function(element, i) {
+				originalHeights[i] = parseInt(getComputedStyle(element).height);
+			});
+			this.one("AnimationCompleted", function() {
+				this.css("height", 0);
+			}, this);
+			that.animate(function(x) {
+				this.map(function(element, i) {
+					element.style.height = originalHeights[i] * (1.0 - x) + "px";
+				});
+			}, duration);
+		},
+		slideDown: function(duration) {
+			var currentHeights = [],
+				originalHeights = [],
+				that = this;
+
+			this.map(function(element, i) {
+				currentHeights[i] = parseInt(getComputedStyle(element).height);
+			});
+
+			this.css({
+				height: "",
+				display: "block",
+				visibility: "hidden",
+				position: "absolute",
+			});
+			this.one("AnimationCompleted", function() {
+				this.css("height", "");
+			}, this);
+
+			setTimeout(function() {
+				that.map(function(element, i) {
+					originalHeights[i] = parseInt(getComputedStyle(element).height);
+					element.style.height = currentHeights[i] + "px";
+					element.style.display = "";
+					element.style.visibility = "";
+					element.style.position = "";
+				});
+
+				that.animate(function(x) {
+					this.map(function(element, i) {
+						element.style.height = originalHeights[i] * x + currentHeights[i] * (1.0 - x) + "px";
+					});
+				}, duration);
+			}, 0);
 		}
 	});
 }());
@@ -2362,30 +2439,47 @@ var NoteView = (function() {
 
 var TreeView = (function() {
 	function TreeView(title) {
-		this.__$base = $("<div class='TreeView'></div>");
+		this.__$base = $("<div class='TreeView-base'></div>");
 
 		this.rootNode = new TreeViewNodeView(title);
 		this.rootNode.appendTo(this);
+		this.rootNode.treeView = this;
 	};
 	extendClass(TreeView, View);
+
+	IPubSub.attachShortHandle(TreeView.prototype, [
+		"click"
+	]);
 
 	return TreeView
 }());
 
 var TreeViewNodeView = (function() {
 	function TreeViewNodeView(title) {
-		this.__$base = $("<li></li>");
+		this.treeView = null;
+
+		this.__$base = $("<li class='TreeViewNodeView-base -open'></li>");
 		this.__$base.bind("click", this.__clickBase, this, true);
 
-		this.__$title = $("<p></p>");
+		this.__$title = $("<p class='TreeViewNodeView-title'></p>");
 		this.__$title.appendTo(this.__$base);
 
-		this.__$children = $("<ul></ul>");
+		this.__$titleIcon = $("<i class='TreeViewNodeView-title-icon'></i>");
+		this.__$titleIcon.appendTo(this.__$title);
+
+		this.__$titleText = $("<span class='TreeViewNodeView-title-text'></span>");
+		this.__$titleText.appendTo(this.__$title);
+
+		this.__$children = $("<ul class='TreeViewNodeView-children'></ul>");
 		this.__$children.appendTo(this.__$base);
 
 		this.model = new TreeViewNodeViewModel();
 		this.model.bind("update", this.__updateModel, this);
+		this.model.bind("updateTree", this.__updateTreeModel, this);
 		this.model.title = title;
+
+		this.__isOpen = true;
+		this.__originalHeight = null;
 	};
 	extendClass(TreeViewNodeView, View);
 
@@ -2401,6 +2495,7 @@ var TreeViewNodeView = (function() {
 		var child = new TreeViewNodeView(title);
 
 		child.appendTo(this);
+		child.treeView = this.treeView;
 		this.model.appendChild(child.model);
 
 		return child;
@@ -2408,6 +2503,8 @@ var TreeViewNodeView = (function() {
 
 	TreeViewNodeView.prototype.removeNode = function(child) {
 		this.model.removeChild(child.model);
+		child.treeView = null;
+		child.remove();
 	};
 
 	/*-------------------------------------------------
@@ -2418,8 +2515,17 @@ var TreeViewNodeView = (function() {
 		this.update();
 	};
 
+	TreeViewNodeView.prototype.__updateTreeModel = function() {
+		this.__$base.toggleClass("-hasChild", this.model.children.length > 0);
+	};
+
 	TreeViewNodeView.prototype.__clickBase = function(ev) {
 		this.fire("click", ev);
+		if (this.treeView) this.treeView.fire("click", this);
+
+		this.toggle();
+
+		ev.stopPropagation();
 	};
 
 	IPubSub.attachShortHandle(TreeViewNodeView.prototype, [
@@ -2427,11 +2533,41 @@ var TreeViewNodeView = (function() {
 	]);
 
 	/*-------------------------------------------------
+	 * open / close
+	 */
+
+	TreeViewNodeView.prototype.toggle = function() {
+		if (this.__isOpen) {
+			this.close();
+		} else {
+			this.open();
+		}
+	};
+
+	TreeViewNodeView.prototype.open = function() {
+		this.__$children.slideDown();
+		this.__$children.fadeIn();
+		this.__$base.addClass("-open");
+		this.__$base.removeClass("-close");
+
+		this.__isOpen = true;
+	};
+
+	TreeViewNodeView.prototype.close = function() {
+		this.__$children.slideUp();
+		this.__$children.fadeOut();
+		this.__$base.removeClass("-open");
+		this.__$base.addClass("-close");
+
+		this.__isOpen = false;
+	};
+
+	/*-------------------------------------------------
 	 * update
 	 */
 
 	TreeViewNodeView.prototype.update = function() {
-		this.__$title.text(this.model.title);
+		this.__$titleText.text(this.model.title);
 	};
 
 	/*-------------------------------------------------
@@ -2516,9 +2652,12 @@ var app = (function() {
 
 		node1 = treeView.rootNode.appendNode("node1");
 		node2 = treeView.rootNode.appendNode("node2");
-
-		node21 = node2.appendNode("node2-1");
-		node22 = node2.appendNode("node2-2");
+		for (var i = 0; i < 10; i++) {
+			node1.appendNode("node1-" + i);
+		}
+		treeView.click(function(node) {
+			console.log("click -> " + node.model.title);
+		})
 		//-------------------------------
 		//NoteView
 

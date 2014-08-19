@@ -77,9 +77,12 @@ var app = (function() {
 
 		node1 = treeView.rootNode.appendNode("node1");
 		node2 = treeView.rootNode.appendNode("node2");
-
-		node21 = node2.appendNode("node2-1");
-		node22 = node2.appendNode("node2-2");
+		for (var i = 0; i < 10; i++) {
+			node1.appendNode("node1-" + i);
+		}
+		treeView.click(function(node) {
+			console.log("click -> " + node.model.title);
+		})
 		//-------------------------------
 		//NoteView
 

@@ -67,7 +67,7 @@ var bQuery = (function() {
 		},
 		map: function(fn) {
 			for (var i = 0, max = this.length; i < max; i++) {
-				fn(this[i]);
+				fn(this[i], i);
 			}
 			return this;
 		},

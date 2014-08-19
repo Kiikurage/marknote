@@ -172,7 +172,6 @@ var IPubSub = (function(exports) {
 				}
 			};
 		}
-
 	};
 
 	exports.implement = function(target) {
