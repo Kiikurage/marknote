@@ -1,49 +1,38 @@
 //#include("/View/View.js");
+//#include("/View/NoteView/NoteViewCursorView.js");
 //#include("/Service/Markdown.js");
-//#include("/Service/KeyRecognizer.js");
 //#include("/Model/NoteViewTextboxModel.js");
+//#include("/View/NoteView/NoteViewScopeParser.js");
 
 var NoteViewTextbox = (function() {
 
-	//static variables
-	var $textarea = $("<textarea class='NoteViewTextbox-textarea'></textarea>")
-		.appendTo(document.body),
-
-		textarea = $textarea[0],
-
-		$cursor = $("<div class='NoteViewTextbox-Cursor'></div>"),
-
-		lastSelectionStart = -1;
-
-
-	function NoteViewTextbox() {
+	function NoteViewTextbox(cursor) {
 		this.super();
+
 		this.__$base = $("<div class='NoteViewTextbox-base'></div>");
 		this.__$base.bind("click", this.__click, this, true);
 		this.__$base.bind("mousedown", this.__mousedown, this, true);
 
-		this.__$markdown = $("<div class='NoteViewTextbox-markdown'></div>")
-		this.__$markdown.appendTo(this.__$base);
+		this.__$resizeHandle = $("<div class='NoteViewTextbox-resizeHandle'></div>")
+		this.__$resizeHandle.appendTo(this.__$base);
+		this.__$resizeHandle.bind("mousedown", this.__mousedownResizeHandle, this, true);
 
-		this.__kr = new KeyRecognizer();
-		this.__kr.register({
-			"shift+tab": this.__inputDeleteTab,
-			"tab": this.__inputTab,
-			"enter": this.__inputEnter
-		}, this);
+		this.__$textLayer = $("<div class='NoteViewTextbox-textLayer'></div>")
+		this.__$textLayer.appendTo(this.__$base);
+		this.__$cursorLayer = $("<div class='NoteViewTextbox-cursorLayer'></div>")
+		this.__$cursorLayer.appendTo(this.__$base);
 
-		this.__dragging = {
-			startX: null,
-			startY: null,
-			startMX: null,
-			startMY: null,
-		};
+		this.cursor = cursor;
+
+		this.renderingInfo = [];
 	}
 	extendClass(NoteViewTextbox, View);
 
 	NoteViewTextbox.prototype.bindModel = function(model) {
 		this.model = model;
 		model.view = this;
+		model.__receiver = this.__receiver;
+
 		this.model.bind("update", this.update, this);
 
 		this.update();
@@ -57,94 +46,28 @@ var NoteViewTextbox = (function() {
 		ev.stopPropagation();
 	};
 
-	NoteViewTextbox.prototype.__input = function(ev) {
-		this.model.text = textarea.value;
-	};
-
-	NoteViewTextbox.prototype.__blurTextArea = function(ev) {
-		this.lostFocus();
-	};
-
-	NoteViewTextbox.prototype.__inputTab = function(ev) {
-		var val = textarea.value,
-			selectionStart = textarea.selectionStart;
-
-		textarea.value =
-			val.slice(0, textarea.selectionStart) +
-			"\t" +
-			val.slice(textarea.selectionEnd)
-
-		textarea.selectionStart =
-			textarea.selectionEnd =
-			selectionStart + 1;
-
-		this.model.text = textarea.value;
-		ev.preventDefault();
-	};
-
-	NoteViewTextbox.prototype.__inputDeleteTab = function(ev) {
-		var val = textarea.value,
-			selectionStart = textarea.selectionStart;
-
-		var lastLine = val.slice(0, textarea.selectionStart).split("\n").pop(),
-			len = lastLine.length,
-			indentLevel = lastLine.match(/^\t*/)[0].length;
-
-		if (indentLevel > 0) {
-			textarea.value =
-				val.slice(0, textarea.selectionStart - len) +
-				lastLine.slice(1) +
-				val.slice(textarea.selectionEnd)
-
-			textarea.selectionStart =
-				textarea.selectionEnd =
-				selectionStart - 1;
-
-			this.model.text = textarea.value;
-		}
-		ev.preventDefault();
-	};
-
-	NoteViewTextbox.prototype.__inputEnter = function(ev) {
-		var val = textarea.value,
-			selectionStart = textarea.selectionStart;
-
-		var lastLine = val.slice(0, textarea.selectionStart).split("\n").pop(),
-			indentLevel = lastLine.match(/^\t*/)[0].length;
-
-		textarea.value =
-			val.slice(0, textarea.selectionStart) +
-			"\n" + Array(indentLevel + 1).join("\t") +
-			val.slice(textarea.selectionEnd)
-
-		textarea.selectionStart =
-			textarea.selectionEnd =
-			selectionStart + 1 + indentLevel;
-
-		this.model.text = textarea.value;
-		ev.preventDefault();
-	};
-
 	NoteViewTextbox.prototype.__mousedown = function(ev) {
 		this.__$base.addClass("-drag");
 
-		document.body.bind("mousemove", this.__mousemoveForMove, this, true);
-		document.body.bind("mouseup", this.__mouseupForMove, this, true);
+		document.body.bind("mousemove", this.__mousemove, this, true);
+		document.body.bind("mouseup", this.__mouseup, this, true);
 
 		this.__startMX = ev.x;
 		this.__startMY = ev.y;
 		this.__startX = parseInt(this.__$base.css("left"));
 		this.__startY = parseInt(this.__$base.css("top"));
+
+		ev.stopPropagation();
 	};
 
-	NoteViewTextbox.prototype.__mouseupForMove = function(ev) {
+	NoteViewTextbox.prototype.__mouseup = function(ev) {
 		this.__$base.removeClass("-drag");
 
-		document.body.unbind("mousemove", this.__mousemoveForMove, this, true);
-		document.body.unbind("mouseup", this.__mouseupForMove, this, true);
+		document.body.unbind("mousemove", this.__mousemove, this, true);
+		document.body.unbind("mouseup", this.__mouseup, this, true);
 	};
 
-	NoteViewTextbox.prototype.__mousemoveForMove = function(ev) {
+	NoteViewTextbox.prototype.__mousemove = function(ev) {
 		var x = Math.round((this.__startX + (ev.x - this.__startMX)) / GRID_SIZE) * GRID_SIZE,
 			y = Math.round((this.__startY + (ev.y - this.__startMY)) / GRID_SIZE) * GRID_SIZE;
 
@@ -155,6 +78,34 @@ var NoteViewTextbox = (function() {
 		this.model.y = y;
 	};
 
+	NoteViewTextbox.prototype.__mousedownResizeHandle = function(ev) {
+		this.__$base.addClass("-drag");
+
+		document.body.bind("mousemove", this.__mousemoveResizeHandle, this, true);
+		document.body.bind("mouseup", this.__mouseupResizeHandle, this, true);
+
+		this.__startMX = ev.x;
+		this.__startW = parseInt(this.model.w);
+
+		ev.stopPropagation();
+	};
+
+	NoteViewTextbox.prototype.__mouseupResizeHandle = function(ev) {
+		this.__$base.removeClass("-drag");
+
+		document.body.unbind("mousemove", this.__mousemoveResizeHandle, this, true);
+		document.body.unbind("mouseup", this.__mouseupResizeHandle, this, true);
+
+		ev.stopPropagation();
+	};
+
+	NoteViewTextbox.prototype.__mousemoveResizeHandle = function(ev) {
+		var w = this.__startW + Math.round((ev.x - this.__startMX) / GRID_SIZE) * GRID_SIZE;
+
+		if (w < 50) w = 50;
+
+		this.model.w = w;
+	};
 
 	/*-------------------------------------------------
 	 * remove
@@ -162,6 +113,10 @@ var NoteViewTextbox = (function() {
 	NoteViewTextbox.prototype.remove = function() {
 		this.__$base.remove();
 
+		this.__$base.unbind("click", this.__click, this, true);
+		this.__$base.unbind("mousedown", this.__mousedown, this, true);
+		this.__$resizeHandle.unbind("mousedown", this.__mousedownResizeHandle, this, true);
+		this.model.unbind("update", this.update, this);
 		this.fire("remove", this);
 	};
 
@@ -169,41 +124,72 @@ var NoteViewTextbox = (function() {
 	 * focus
 	 */
 	NoteViewTextbox.prototype.setFocus = function() {
-		this.model.focus = true;
+		this.cursor.attach(this);
+		this.cursor.setSelection(0, 0);
 
-		$textarea.bind("input", this.__input, this, true);
-		$textarea.bind("blur", this.__blurTextArea, this, true);
-
-		textarea.value = this.model.text;
-		$textarea.focus();
-
-		this.__kr.listen($textarea);
+		this.fire("update", this);
+		this.__$base.addClass("-edit");
 	};
 
 	NoteViewTextbox.prototype.lostFocus = function() {
-		this.model.focus = false;
+		this.cursor.detach(this);
+		this.__$base.removeClass("-edit");
 
-		$textarea.unbind("input", this.__input, this, true);
-		$textarea.unbind("blur", this.__blurTextArea, this, true);
-
-		if (this.model.text === "") this.remove();
-		this.__kr.unlisten($textarea);
+		if (this.model.text.replace(/\s*/g, "") === "") this.remove();
 	};
 
 	/*-------------------------------------------------
 	 * update
 	 */
 	NoteViewTextbox.prototype.update = function() {
-		var model = this.model,
-			text = model.text,
-			html = Markdown.parse(text);
-
-		this.__$base.toggleClass("-edit", model.focus);
-		this.__$markdown.html(html);
-		this.setPosition(model.x, model.y);
+		this.updateBase();
+		this.updateTextLayer();
 
 		this.fire("update", this);
 	};
+
+	NoteViewTextbox.prototype.updateTextLayer = function() {
+		var lines = this.model.text.split("\n"),
+			top = 0,
+			width = this.model.w;
+
+		this.__$textLayer.children().remove();
+
+		this.renderingInfo = [];
+		for (var i = 0, max = lines.length; i < max; i++) {
+			var lineRenderingInfo = NoteViewScopeParser.convertLineToHTML(lines[i]),
+				$line = $(lineRenderingInfo.html);
+
+			this.renderingInfo.push({
+				top: top,
+				height: lineRenderingInfo.height,
+				node: $line[0]
+			});
+
+			this.__$textLayer.append($line);
+			$line.css({
+				top: top,
+				width: width,
+				height: lineRenderingInfo.height
+			});
+
+			top += lineRenderingInfo.height;
+		};
+		this.__$textLayer.css("height", top);
+	};
+
+	NoteViewTextbox.prototype.updateBase = function() {
+		var model = this.model;
+
+		this.__$base.css({
+			left: model.x,
+			top: model.y,
+			width: model.w,
+			zIndex: model.z
+		});
+	};
+
+
 
 	return NoteViewTextbox;
 }());

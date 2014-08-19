@@ -1,0 +1,171 @@
+//main: ../../style.less
+//#compileTo="../../style.less"#
+
+.NoteViewTextbox-base {
+	display: block;
+	position: absolute;
+
+	padding: 20px;
+	margin: 0;
+
+	border-radius: 3px;
+	border: 1px solid fade(@Orange300, 0);
+	transition: border-color 0.2s ease;
+
+	&:hover,
+	&.-hover {
+		border-color: fade(@Orange300, 50);
+	}
+	&.-drag {
+		cursor: move;
+		border-color: @Orange300;
+	}
+	&.-edit {
+		border-color: @Orange300;
+	}
+}
+.NoteViewTextbox-resizeHandle {
+	display: block;
+	position: absolute;
+
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: 10px;
+
+	cursor: e-resize;
+	z-index: 65534;
+}
+
+.NoteViewTextbox-layer() {
+	display: block;
+	position: absolute;
+
+	top: 20px;
+	left: 20px;
+	right: 20px;
+	bottom: 20px;
+
+	padding: 0;
+	margin: 0;
+
+	border: none;
+	background: none;
+
+	outline: none;
+	box-sizing: border-box;
+}
+.NoteViewTextbox-textLayer {
+	.NoteViewTextbox-layer();
+	position: relative;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+}
+.NoteViewTextbox-line {
+	display: block;
+	position: absolute;
+
+	padding: 0;
+	margin: 0;
+
+	// color: #effdff;
+	font-family: Osaka-mono, "MS Gothic", monospace;
+	font-size: 14px;
+	line-height: 1.5;
+
+	&.-focus {
+		background: fade(@Orange300, 10);
+	}
+}
+.NoteViewTextbox-scope {
+	display: inline-block;
+	position: relative;
+
+	word-wrap: break-word;
+	vertical-align: middle;
+}
+.NoteViewTextbox-scope-header1 {
+	margin: 10px 0;
+	color: @Cyan400;
+	font-size: 3.5em;
+	font-weight: bold;
+	line-height: 45px;
+}
+.NoteViewTextbox-scope-header2 {
+	font-size: 2em;
+	line-height: 24px;
+	margin: 20px 0 10px;
+	color: @Cyan400;
+}
+.NoteViewTextbox-scope-header3 {
+	color: @Cyan400;
+}
+.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-hr {
+	border-bottom-color: fade(@Cyan400, 10);
+}
+.NoteViewTextbox-scope-indent {
+	display: inline-block;
+	position:relative;
+
+	color: transparent;
+	width: 2em;
+	height: 100%;
+	border-right: 1px dotted transparent;
+	text-align: center;
+
+	.NoteViewTextbox-scope-indent-inner {
+		display: block;
+		position: relative;
+
+		width: 90%;
+		height: 1px;
+		top: 50%;
+		margin: 0 auto;
+		background: transparent;
+	}
+}
+.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-indent {
+	border-right-color: fade(@Orange500, 40);
+	.NoteViewTextbox-scope-indent-inner {
+		background: @Grey300;
+	}
+}
+.NoteViewTextbox-scope-list {
+	display: inline-block;
+	position:relative;
+
+	color: transparent;
+	width: 2em;
+	height: 100%;
+	text-align: center;
+
+	box-sizing: border-box;
+
+
+
+	.NoteViewTextbox-scope-list-inner {
+		position: relative;
+
+		width: 0;
+		height: 0;
+		border: 3px solid @Grey900;
+		border-radius: 3px;
+	}
+}
+.NoteViewTextbox-base.-edit .NoteViewTextbox-scope-list {
+	.NoteViewTextbox-scope-list-inner {
+		background: @Grey200;
+	}
+}
+.NoteViewTextbox-scope-bold {
+	color: @Red500;
+	vertical-align: top;
+	// margin: -1px;
+	// border: 1px solid @Red500;
+}
+
+.NoteViewTextbox-cursorLayer {
+	.NoteViewTextbox-layer();
+}

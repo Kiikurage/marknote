@@ -45,10 +45,14 @@
 			trueContext = searchTrueContext(fakeContext, arguments.callee.caller);
 		if (!trueContext) throw new Error("Can't get true context.");
 
-		var superContext = getPrototype(trueContext),
-			superMethod = funcName ? superContext[funcName] : superContext.constructor;
+		funcName = funcName || arguments.callee.caller.name;
 
-		if (typeof superMethod !== "function") return;
+		var superContext = getPrototype(trueContext),
+			superMethod = superContext[funcName]
+
+		if (typeof superMethod !== "function") {
+			superMethod = superContext.constructor;
+		}
 
 		return superMethod.apply(fakeContext, args);
 	};

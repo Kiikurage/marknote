@@ -57,13 +57,17 @@ var bQuery = (function() {
 		merge: function(arr) {
 			for (var i = 0, max = arr.length; i < max; i++) {
 				if (this.indexOf(arr[i]) >= 0) continue;
-				this.push(arr[i]);
+				if (arr[i] instanceof HTMLElement) {
+					this.push(arr[i]);
+				} else if (arr[i] instanceof bQuery) {
+					this.merge(arr[i]);
+				}
 			}
 			return this;
 		},
 		map: function(fn) {
 			for (var i = 0, max = this.length; i < max; i++) {
-				fn(this[i]);
+				fn(this[i], i);
 			}
 			return this;
 		},
@@ -94,6 +98,8 @@ var bQuery = (function() {
 				var res = new bQuery();
 				res.push(query);
 				return res;
+			} else if (query instanceof Array) {
+				return (new bQuery()).merge(query);
 			}
 		}
 

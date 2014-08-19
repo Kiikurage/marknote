@@ -45,10 +45,14 @@
 			trueContext = searchTrueContext(fakeContext, arguments.callee.caller);
 		if (!trueContext) throw new Error("Can't get true context.");
 
-		var superContext = getPrototype(trueContext),
-			superMethod = funcName ? superContext[funcName] : superContext.constructor;
+		funcName = funcName || arguments.callee.caller.name;
 
-		if (typeof superMethod !== "function") return;
+		var superContext = getPrototype(trueContext),
+			superMethod = superContext[funcName]
+
+		if (typeof superMethod !== "function") {
+			superMethod = superContext.constructor;
+		}
 
 		return superMethod.apply(fakeContext, args);
 	};
@@ -100,18 +104,25 @@
 ;var IPubSub = (function(exports) {
 
 	var callbackDict = {};
+	var publisherList = {};
 	var nativeCallbackDict = {};
 	var guid = 0;
 
-	function getPublihserId(target, flagCreate) {
-		return target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
+	window.callbackDict = callbackDict;
+	window.publisherList = publisherList
+
+	function getPublisherId(target, flagCreate) {
+		var res = target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
+		if (res) publisherList[res] = target;
+
+		return res;
 	}
 
 	exports.bind = function(publisher, type, fn, context, isNative) {
 		//Prevent for register duplication
 		exports.unbind(publisher, type, fn, context);
 
-		var publisherID = getPublihserId(publisher, true);
+		var publisherID = getPublisherId(publisher, true);
 
 		var callbackList = callbackDict[publisherID];
 		if (!callbackList) {
@@ -153,7 +164,7 @@
 	};
 
 	exports.unbind = function(publisher, type, fn, context) {
-		var publisherID = getPublihserId(publisher);
+		var publisherID = getPublisherId(publisher);
 		if (!publisherID) return;
 
 		var callbackList = callbackDict[publisherID];
@@ -184,10 +195,20 @@
 				nativeCallback = nativeCallbackList[type] = null;
 			}
 		}
+
+		delete callbackList[type];
+		if (!Object.keys(callbackList).length) {
+			delete callbackDict[publisherID];
+			delete publisherList[publisherID];
+
+			if (nativeCallbackList) {
+				delete nativeCallbackDict[publisherID];
+			}
+		};
 	};
 
 	exports.fire = function(publisher, type, argArr) {
-		var publisherID = getPublihserId(publisher);
+		var publisherID = getPublisherId(publisher);
 		if (!publisherID) return;
 
 		var callbackList = callbackDict[publisherID];
@@ -211,6 +232,50 @@
 		callbackList[type] = firedArr;
 	};
 
+	exports.attachShortHandle = function(target, types) {
+		types.forEach(function(type) {
+			target[type] = function(fn, context) {
+				if (typeof fn === "function") {
+					this.bind(type, fn, context || this);
+				} else {
+					this.fire(type);
+				};
+			}
+		});
+	};
+
+	exports.removeEventListenerAll = function(publisher) {
+		var publisherID = getPublisherId(publisher);
+		if (!publisherID) return;
+
+		var callbackList = callbackDict[publisherID];
+		if (!callbackList) return
+
+		var nativeCallbackList = nativeCallbackDict[publisherID];
+
+		for (var type in callbackList) {
+			if (!callbackList.hasOwnProperty(type)) continue;
+
+			if (nativeCallbackList) {
+				var nativeCallback = nativeCallbackList[type];
+				if (nativeCallback) {
+					publisher.removeEventListener(type, nativeCallback);
+					nativeCallback = nativeCallbackList[type] = null;
+				}
+			}
+
+			delete callbackList[type];
+			if (!Object.keys(callbackList).length) {
+				delete callbackDict[publisherID];
+				delete publisherList[publisherID];
+
+				if (nativeCallbackList) {
+					delete nativeCallbackDict[publisherID];
+				}
+			};
+		}
+	};
+
 	exports.implement = function(target) {
 		target.bind = function(type, fn, context, isNative) {
 			IPubSub.bind(this, type, fn, context, isNative);
@@ -231,6 +296,9 @@
 			IPubSub.fire(this, type, args);
 			return this;
 		};
+		target.removeEventListenerAll = function() {
+			IPubSub.removeEventListenerAll(target);
+		}
 	};
 
 	return exports;
@@ -293,13 +361,17 @@
 		merge: function(arr) {
 			for (var i = 0, max = arr.length; i < max; i++) {
 				if (this.indexOf(arr[i]) >= 0) continue;
-				this.push(arr[i]);
+				if (arr[i] instanceof HTMLElement) {
+					this.push(arr[i]);
+				} else if (arr[i] instanceof bQuery) {
+					this.merge(arr[i]);
+				}
 			}
 			return this;
 		},
 		map: function(fn) {
 			for (var i = 0, max = this.length; i < max; i++) {
-				fn(this[i]);
+				fn(this[i], i);
 			}
 			return this;
 		},
@@ -330,6 +402,8 @@
 				var res = new bQuery();
 				res.push(query);
 				return res;
+			} else if (query instanceof Array) {
+				return (new bQuery()).merge(query);
 			}
 		}
 
@@ -388,12 +462,31 @@
 	});
 }());
 ;(function() {
+	extend(bQuery.prototype, {
+		getBoundingClientRectBy: function(parent) {
+			var $parent = $(parent);
+
+			var gcrChild = this[0].getBoundingClientRect(),
+				gcrParent = $parent[0].getBoundingClientRect();
+
+			return {
+				left: gcrChild.left - gcrParent.left,
+				top: gcrChild.top - gcrParent.top,
+				width: gcrChild.width - gcrParent.width,
+				height: gcrChild.height - gcrParent.height,
+				right: gcrChild.right - gcrParent.right,
+				bottom: gcrChild.bottom - gcrParent.bottom
+			};
+		}
+	});
+}());
+;(function() {
 	var cssValueNormalize = (function() {
-		var regCssNoUnit = /^(?:opacity|z-index)$/;
+		var regCssNoUnit = /^(?:opacity|zIndex)$/;
 
 		return function cssValueNormalize(key, value) {
 			if (typeof value === "number" &&
-				!regCssNoUnit.test(value)) {
+				!regCssNoUnit.test(key)) {
 				value = "" + value + "px";
 			}
 			return value;
@@ -412,7 +505,14 @@
 
 			} else if (arguments.length === 1) {
 
-				return getComputedStyle(this[0])[key];
+				var val = getComputedStyle(this[0])[key],
+					valAsNumber = parseFloat(val);
+
+				if (val !== NaN) {
+					return valAsNumber
+				} else {
+					return val
+				}
 
 			} else {
 
@@ -458,10 +558,22 @@
 		},
 		toggleClass: function(klass, flag) {
 			if (arguments.length == 2) {
-				if (flag) {
-					return this.addClass(klass)
+				if (typeof flag === "boolean") {
+					if (flag) {
+						return this.addClass(klass)
+					} else {
+						return this.removeClass(klass)
+					}
 				} else {
-					return this.removeClass(klass)
+					this.map(function(node) {
+						if (node.classList.contains(klass)) {
+							node.classList.remove(klass);
+							node.classList.add(flag);
+						} else {
+							node.classList.add(klass);
+							node.classList.remove(flag);
+						}
+					});
 				}
 			} else {
 				this.map(function(node) {
@@ -527,13 +639,25 @@
 	});
 }());
 ;(function() {
+	var easing = {
+		easeInOutQuint: function(t, b, c, d) {
+			x = t / d;
+			return x > 0.5 ?
+				1 - 8 * (x -= 1) * x * x * x :
+				8 * x * x * x * x;
+		}
+	};
+
 	extend(bQuery.prototype, {
-		animate: function(fn, duration) {
+		animate: function(fn, duration, easingType) {
 
 			var that = this,
+				duration = duration || 300,
+				easingType = easingType || "easeInOutQuint",
 				core = function() {
 					var n = +(new Date()),
-						x = (n - s > duration) ? 1 : (n - s) / duration;
+						x = (n - s > duration) ? 1 : easing[easingType](n - s, 0, 1, duration)
+
 
 					fn.call(that, x);
 
@@ -573,6 +697,60 @@
 			return this;
 		}
 	});
+
+	extend(bQuery.prototype, {
+		slideUp: function(duration) {
+			var originalHeights = [],
+				that = this;
+
+			this.map(function(element, i) {
+				originalHeights[i] = parseInt(getComputedStyle(element).height);
+			});
+			this.one("AnimationCompleted", function() {
+				this.css("height", 0);
+			}, this);
+			that.animate(function(x) {
+				this.map(function(element, i) {
+					element.style.height = originalHeights[i] * (1.0 - x) + "px";
+				});
+			}, duration);
+		},
+		slideDown: function(duration) {
+			var currentHeights = [],
+				originalHeights = [],
+				that = this;
+
+			this.map(function(element, i) {
+				currentHeights[i] = parseInt(getComputedStyle(element).height);
+			});
+
+			this.css({
+				height: "",
+				display: "block",
+				visibility: "hidden",
+				position: "absolute",
+			});
+			this.one("AnimationCompleted", function() {
+				this.css("height", "");
+			}, this);
+
+			setTimeout(function() {
+				that.map(function(element, i) {
+					originalHeights[i] = parseInt(getComputedStyle(element).height);
+					element.style.height = currentHeights[i] + "px";
+					element.style.display = "";
+					element.style.visibility = "";
+					element.style.position = "";
+				});
+
+				that.animate(function(x) {
+					this.map(function(element, i) {
+						element.style.height = originalHeights[i] * x + currentHeights[i] * (1.0 - x) + "px";
+					});
+				}, duration);
+			}, 0);
+		}
+	});
 }());
 ;;var View = (function() {
 
@@ -580,6 +758,10 @@
 
 	}
 	IPubSub.implement(View.prototype);
+
+	/*-------------------------------------
+	 *	layout setting
+	 */
 
 	View.prototype.append = View.prototype.appendChild = function(child) {
 		child.appendTo(this.__$base);
@@ -597,6 +779,10 @@
 		this.__$base.insertAfter(refElement);
 	};
 
+	/*-------------------------------------
+	 *	property setting
+	 */
+
 	View.prototype.setID = function(id) {
 		this.__$base.attr("id", id);
 	};
@@ -613,6 +799,22 @@
 			width: width,
 			height: height
 		});
+	};
+
+	View.prototype.setWidth = function(width) {
+		this.__$base.css("width", width);
+	};
+
+	View.prototype.setHeight = function(height) {
+		this.__$base.css("height", height);
+	};
+
+	/*-------------------------------------
+	 *	remove
+	 */
+
+	View.prototype.remove = function() {
+		this.removeEventListenerAll();
 	};
 
 	return View;
@@ -759,6 +961,66 @@ var TabPanelView = (function() {
 
 	return ButtonView;
 }());
+;var NoteViewScopeParser = (function(exports) {
+	var IS_ICON_SCOPE = true;
+
+	exports.IconScopeClass = "NoteViewTextbox-scope-icon";
+
+	exports.convertLineToHTML = function(line) {
+		var scope = [],
+			height = 24,
+			res = "";
+
+		//indent
+		while (line[0] === "\t") {
+			line = line.slice(1);
+			var inner = wrapWithScope("", ["NoteViewTextbox-scope-indent-inner"]);
+			res += wrapWithScope(inner, ["NoteViewTextbox-scope-indent"], IS_ICON_SCOPE);
+		}
+
+		//header
+		var headerLevel = 0;
+		while (line[headerLevel] === "#") {
+			headerLevel++;
+		}
+		if (headerLevel) {
+			scope.push("NoteViewTextbox-scope-header" + headerLevel);
+			height = [65, 62, 20][headerLevel - 1];
+		}
+
+		//list
+		if (line[0] === "-") {
+			line = line.slice(1);
+			var inner = wrapWithScope("", ["NoteViewTextbox-scope-list-inner"]);
+			res += wrapWithScope(inner, ["NoteViewTextbox-scope-list"], IS_ICON_SCOPE);
+		}
+
+		line = line.replace(/\s/g, "&nbsp;");
+
+		line = line.replace(/\*[^\*]*\*/g, function(outer) {
+			return wrapWithScope(outer, ["NoteViewTextbox-scope-bold"]);
+		});
+
+		res += wrapWithScope(line, scope);
+
+		return {
+			html: "<p class='NoteViewTextbox-line'>" + res + "</p>",
+			height: height
+		}
+	};
+
+	function wrapWithScope(text, scope, isIconScope) {
+		var scopes = ["NoteViewTextbox-scope"];
+
+		if (scope) scopes = scopes.concat(scope);
+		if (isIconScope) scopes.push(NoteViewScopeParser.IconScopeClass);
+
+
+		return "<span class='" + scopes.join(" ") + "'>" + text + "</span>";
+	}
+
+	return exports;
+}({}));
 ;var Markdown = (function() {
 	var TokenType = {
 		NormalText: 0,
@@ -964,69 +1226,6 @@ var TabPanelView = (function() {
 		parse: parse
 	};
 }());
-;var KeyRecognizer = (function() {
-
-	function KeyRecognizer() {
-
-	}
-	IPubSub.implement(KeyRecognizer.prototype);
-
-	KeyRecognizer.prototype.listen = function(node) {
-		node.bind("keydown", this.__keyDownListener, this, true);
-	};
-
-	KeyRecognizer.prototype.unlisten = function(node) {
-		node.unbind("keydown", this.__keyDownListener, this, true);
-	};
-
-	KeyRecognizer.prototype.__keyDownListener = function(ev) {
-		var keys = [];
-		keys.push(ev.keyCode);
-
-		if (ev.keyCode !== KEYCODE.SHIFT && ev.shiftKey) keys.push(KEYCODE.SHIFT);
-		if (ev.keyCode !== KEYCODE.ALT && ev.altKey) keys.push(KEYCODE.ALT);
-		if (ev.keyCode !== KEYCODE.CTRL && ev.ctrlKey) keys.push(KEYCODE.CTRL);
-		if (ev.keyCode !== KEYCODE.CMD && ev.metaKey) keys.push(KEYCODE.CMD);
-
-		keys.sort(function(a, b) {
-			return a - b
-		});
-		this.fire(keys.join("+"), ev);
-	};
-
-	KeyRecognizer.prototype.register = function(pattern, callback, context) {
-		if (typeof pattern === "object") {
-			var patternList = arguments[0],
-				context = arguments[1],
-				callback = null;
-
-			for (var pattern in patternList) {
-				if (!patternList.hasOwnProperty(pattern)) continue
-				this.register(pattern, patternList[pattern], context);
-			}
-			return
-		}
-
-		var tokens = pattern.split("+"),
-			keys = [],
-			token;
-
-		while (token = tokens.pop()) {
-			token = token.toUpperCase();
-			if (token in KEYCODE) keys.push(KEYCODE[token]);
-		}
-
-		keys.sort(function(a, b) {
-			return a - b
-		});
-
-		var pattern = keys.join("+");
-
-		this.bind(pattern, callback, context);
-	};
-
-	return KeyRecognizer;
-}());
 ;var Model = (function() {
 	function Model() {
 
@@ -1157,79 +1356,624 @@ var TabPanelView = (function() {
 		});
 
 		if (!this.scheme) this.scheme = [];
-		this.scheme.push("_" + name);
+		this.scheme.push(name);
 	};
 
 	return Model;
 }());
-
-var ModelTest = (function() {
-	function ModelTest() {
-
-	};
-	extendClass(ModelTest, Model);
-
-	ModelTest.__record("name");
-	ModelTest.__record("age");
-	ModelTest.__record("obj");
-	ModelTest.__record("child");
-
-	return ModelTest
-}());
 ;var NoteViewTextboxModel = (function() {
 	function NoteViewTextboxModel() {
-		this._text = "";
+		this.__lines = [""];
+		this._w = 400;
+		this._z = 0;
 	}
 	extendClass(NoteViewTextboxModel, Model);
 
 	NoteViewTextboxModel.__record("x");
 	NoteViewTextboxModel.__record("y");
-	NoteViewTextboxModel.__record("text");
-	NoteViewTextboxModel.__record("focus");
+	NoteViewTextboxModel.__record("z");
+	NoteViewTextboxModel.__record("w");
+	NoteViewTextboxModel.__record("text", function() {
+		return this.__lines.join("\n");
+	}, function(text) {
+		this.__lines = text.split("\n");
+	});
+
+	NoteViewTextboxModel.prototype.getLines = function() {
+		return this.__lines
+	};
+
+	NoteViewTextboxModel.prototype.getLine = function(line) {
+		return this.__lines[line];
+	};
+
+	NoteViewTextboxModel.prototype.getLineLength = function(line) {
+		return this.__lines[line].length;
+	};
+
+	NoteViewTextboxModel.prototype.getLinesCount = function() {
+		return this.__lines.length;
+	};
+
+	/*------------------------------------------------
+	 *	edit text
+	 */
+	NoteViewTextboxModel.prototype.splice = function(start, end, value) {
+		if (start.row !== end.row) {
+
+			var newLine = this.__lines[start.row].slice(0, start.column) + this.__lines[end.row].slice(end.column);
+			this.__lines.splice(start.row, end.row - start.row + 1, newLine);
+
+		} else {
+
+			var line = this.__lines[start.row],
+				newLine = line.slice(0, start.column) + value + line.slice(end.column);
+			this.__lines[start.row] = newLine;
+
+		}
+
+		this.fire("update");
+	};
+
+	NoteViewTextboxModel.prototype.addNewLine = function(position) {
+		var row = position.row,
+			column = position.column,
+			newLine = "";
+
+		if (this.getLineLength(row) !== column) {
+			var oldLine = this.getLine(row);
+
+			newLine = oldLine.slice(column);
+
+			this.__lines[row] = oldLine.slice(0, column);
+		}
+
+		this.__lines.splice(row + 1, 0, newLine);
+
+		this.fire("update");
+	};
 
 	return NoteViewTextboxModel;
 }());
+;var KeyRecognizer = (function() {
+
+	function KeyRecognizer() {
+
+	}
+	IPubSub.implement(KeyRecognizer.prototype);
+
+	KeyRecognizer.prototype.listen = function(node) {
+		node.bind("keydown", this.__keyDownListener, this, true);
+	};
+
+	KeyRecognizer.prototype.unlisten = function(node) {
+		node.unbind("keydown", this.__keyDownListener, this, true);
+	};
+
+	KeyRecognizer.prototype.__keyDownListener = function(ev) {
+		var keys = [];
+		keys.push(ev.keyCode);
+
+		if (ev.keyCode !== KEYCODE.SHIFT && ev.shiftKey) keys.push(KEYCODE.SHIFT);
+		if (ev.keyCode !== KEYCODE.ALT && ev.altKey) keys.push(KEYCODE.ALT);
+		if (ev.keyCode !== KEYCODE.CTRL && ev.ctrlKey) keys.push(KEYCODE.CTRL);
+		if (ev.keyCode !== KEYCODE.CMD && ev.metaKey) keys.push(KEYCODE.CMD);
+
+		keys.sort(function(a, b) {
+			return a - b
+		});
+		this.fire(keys.join("+"), ev);
+	};
+
+	KeyRecognizer.prototype.register = function(pattern, callback, context) {
+		if (typeof pattern === "object") {
+			var patternList = arguments[0],
+				context = arguments[1],
+				callback = null;
+
+			for (var pattern in patternList) {
+				if (!patternList.hasOwnProperty(pattern)) continue
+				this.register(pattern, patternList[pattern], context);
+			}
+			return
+		}
+
+		var tokens = pattern.split("+"),
+			keys = [],
+			token;
+
+		while (token = tokens.pop()) {
+			token = token.toUpperCase();
+			if (token in KEYCODE) keys.push(KEYCODE[token]);
+		}
+
+		keys.sort(function(a, b) {
+			return a - b
+		});
+
+		var pattern = keys.join("+");
+
+		this.bind(pattern, callback, context);
+	};
+
+	return KeyRecognizer;
+}());
+;var BLINK_INTERVAL = 600;
+
+var DIR = {
+	FORWARD: 0,
+	BACKWARD: 1
+};
+
+var NoteViewCursorView = (function() {
+
+	function NoteViewCursorView(receiver) {
+		this.super();
+
+		this.__$base = $("<div class='NoteViewCursorView-base'></div>");
+		this.__blinkTimerID = null;
+
+		this.__$inputReceiver = $("<input type='text' />");
+		this.__$inputReceiver.appendTo($("body"));
+		this.__$inputReceiver.bind("blur", this.__blur, this, true);
+		this.__$inputReceiver.bind("input", this.__input, this, true);
+
+		this.__$marker = $("<span class='NoteViewCursorView-marker'></span>");
+
+		this.__kr = new KeyRecognizer();
+		this.__kr.listen(this.__$inputReceiver);
+		this.__kr.register({
+			"up": this.__inputMoveUp,
+			"down": this.__inputMoveDown,
+			"left": this.__inputMoveLeft,
+			"right": this.__inputMoveRight,
+			"enter": this.__inputNewLine,
+			"tab": this.__inputTab,
+			"multibyte_mode": this.__inputMultiByteMode,
+			"backspace": this.__inputBackSpace,
+			"delete": this.__inputDelete,
+		}, this)
+
+		//debug only start
+		this.__$inputReceiver.css({
+			display: "fixed",
+			bottom: 0,
+			left: 0,
+			zIndex: 65535
+		});
+		//debug only end
+
+		this.selection = {
+			start: {
+				row: 0,
+				column: 0
+			},
+			end: {
+				row: 0,
+				column: 0
+			},
+			direction: DIR.FORWARD
+		};
+
+		this.targetTextBox = null;
+	}
+
+	extendClass(NoteViewCursorView, View);
+
+
+	/*-------------------------------------------------
+	 *	Event Handler
+	 */
+	NoteViewCursorView.prototype.__textBoxUpdate = function() {
+		this.update();
+	};
+
+	NoteViewCursorView.prototype.__blur = function(ev) {
+		this.fire("blur");
+	};
+
+	NoteViewCursorView.prototype.__input = function(ev) {
+		this.inputText(this.__$inputReceiver.val());
+		this.__$inputReceiver.val("");
+	};
+
+	NoteViewCursorView.prototype.__inputMoveUp = function(ev) {
+		this.selection.end.row = this.selection.start.row -= 1;
+		this.selection.end.column = this.selection.start.column;
+
+		this.__selectionNormalize(null, null, false);
+	};
+
+	NoteViewCursorView.prototype.__inputMoveDown = function(ev) {
+		this.selection.end.row = this.selection.start.row += 1;
+		this.selection.end.column = this.selection.start.column;
+
+		this.__selectionNormalize(null, null, false);
+	};
+
+	NoteViewCursorView.prototype.__inputMoveLeft = function(ev) {
+		this.selection.end.column = this.selection.start.column -= 1;
+		this.selection.end.row = this.selection.start.row;
+
+		this.__selectionNormalize(null, null, true);
+	};
+
+	NoteViewCursorView.prototype.__inputMoveRight = function(ev) {
+		this.selection.end.row = this.selection.start.row;
+		this.selection.end.column = this.selection.start.column += 1;
+
+		this.__selectionNormalize(null, null, true);
+	};
+
+	NoteViewCursorView.prototype.__inputNewLine = function(ev) {
+		this.targetTextBox.model.addNewLine(this.selection.start);
+
+		this.selection.start.row++;
+		this.selection.start.column = 0;
+
+		this.selection.end.row = this.selection.start.row;
+		this.selection.end.column = this.selection.start.column;
+
+		this.__selectionNormalize(null, null);
+	};
+
+	NoteViewCursorView.prototype.__inputTab = function(ev) {
+		this.inputText("\t");
+		ev.preventDefault();
+	};
+
+	NoteViewCursorView.prototype.__inputBackSpace = function(ev) {
+		this.selection.start.column -= 1;
+		this.__selectionNormalize(null, null, true);
+
+		this.targetTextBox.model.splice(this.selection.start, this.selection.end, "");
+
+		this.selection.end.row = this.selection.start.row;
+		this.selection.end.column = this.selection.start.column;
+		this.__selectionNormalize(null, null, true);
+
+		ev.preventDefault();
+	};
+
+	NoteViewCursorView.prototype.__inputDelete = function(ev) {
+		this.selection.end.column += 1;
+		this.__selectionNormalize(null, null, true);
+
+		this.targetTextBox.model.splice(this.selection.start, this.selection.end, "");
+
+		this.selection.end.row = this.selection.start.row;
+		this.selection.end.column = this.selection.start.column;
+		this.__selectionNormalize(null, null, true);
+
+		ev.preventDefault();
+	};
+
+	NoteViewCursorView.prototype.__inputMultiByteMode = function(ev) {
+		this.__$inputReceiver.unbind("input", this.__input, this, true);
+		this.__$inputReceiver.bind("input", this.__inputInMultiByteMode, this, true);
+		this.__$inputReceiver.bind("keyup", this.__keyupInMultiByteMode, this, true);
+	};
+
+	NoteViewCursorView.prototype.__inputInMultiByteMode = function(ev) {
+		this.inputText(this.__$inputReceiver.val(), true);
+	};
+
+	NoteViewCursorView.prototype.__keyupInMultiByteMode = function(ev) {
+		if (ev.keyCode === KEYCODE.ENTER) {
+			this.inputText(this.__$inputReceiver.val());
+			this.__$inputReceiver.val("");
+			this.__$inputReceiver.bind("input", this.__input, this, true);
+			this.__$inputReceiver.unbind("input", this.__inputInMultiByteMode, this, true);
+			this.__$inputReceiver.unbind("keyup", this.__keyupInMultiByteMode, this, true);
+		}
+	};
+
+	/*-------------------------------------------------
+	 *	Input
+	 */
+	NoteViewCursorView.prototype.inputText = function(text, flagNOForward) {
+		if (!this.targetTextBox) return;
+
+		var start = this.selection.start,
+			end = this.selection.end;
+
+		this.targetTextBox.model.splice(start, end, text);
+
+		if (flagNOForward) {
+			end.row = start.row;
+			end.column = start.column + text.length;
+		} else {
+			end.row = start.row;
+			end.column = start.column += text.length;
+		}
+
+		this.__selectionNormalize(null, null, true);
+	};
+
+	/*-------------------------------------------------
+	 *	attach/detach
+	 */
+	NoteViewCursorView.prototype.attach = function(textbox) {
+		this.targetTextBox = textbox;
+		this.appendTo(textbox.__$cursorLayer);
+		textbox.bind("update", this.__textBoxUpdate, this);
+
+		this.bind("blur", textbox.lostFocus, textbox);
+		this.__$inputReceiver.focus();
+	};
+
+	NoteViewCursorView.prototype.detach = function(textbox) {
+		this.targetTextBox = null;
+		textbox.unbind("update", this.__textBoxUpdate, this);
+
+		this.unbind("blur", textbox.lostFocus, textbox);
+		this.hide();
+	};
+
+	/*-------------------------------------------------
+	 *	visiblity
+	 */
+	NoteViewCursorView.prototype.hide = function() {
+		if (this.__blinkTimerID) {
+			clearInterval(this.__blinkTimerID);
+			this.__blinkTimerID = null;
+		}
+
+		this.__$base.removeClass("-show");
+	};
+
+	NoteViewCursorView.prototype.show = function() {
+		if (this.__blinkTimerID) {
+			clearInterval(this.__blinkTimerID);
+			this.__blinkTimerID = null;
+		}
+
+		var that = this;
+		this.__blinkTimerID = setInterval(function() {
+			that.blink();
+		}, BLINK_INTERVAL);
+
+		this.__$base.addClass("-show");
+	};
+
+	NoteViewCursorView.prototype.blink = function() {
+		this.__$base.toggleClass("-show");
+	};
+
+	/*-------------------------------------------------
+	 *	selection
+	 */
+	NoteViewCursorView.prototype.__selectionNormalize = function(start, end, flagChangeLine) {
+		if (!this.targetTextBox) return;
+
+		var start = start || this.selection.start,
+			end = end || this.selection.end;
+		this.__positionNormalize(start, flagChangeLine);
+		this.__positionNormalize(end, flagChangeLine);
+
+		//swap if start is after than end
+		if (start.row > end.row || (start.row === end.row && start.column > end.column)) {
+			var tmp = start.row
+			start.row = end.row;
+			end.row = tmp;
+
+			tmp = start.column;
+			start.column = end.column;
+			end.column = tmp;
+		}
+
+		this.update();
+	};
+
+	NoteViewCursorView.prototype.__positionNormalize = function(position, flagChangeLine) {
+		if (!this.targetTextBox) return;
+
+		var model = this.targetTextBox.model;
+
+		if (position.row < 0) {
+			position.row = 0;
+			position.column = 0;
+			return;
+
+		} else if (position.row >= model.getLinesCount()) {
+			position.row = model.getLinesCount() - 1;
+			position.column = model.getLineLength(position.row);
+			return;
+
+		}
+
+
+		if (!flagChangeLine) {
+			if (position.column < 0) {
+				position.column = 0
+			} else if (position.column > model.getLineLength(position.row)) {
+				position.column = model.getLineLength(position.row);
+			}
+			return;
+		}
+
+		while (position.column < 0) {
+
+			if (position.row === 0) {
+				position.row = 0;
+				position.column = 0;
+				return;
+			}
+
+			position.row--;
+			position.column += model.getLineLength(position.row) + 1; //+1 for CRLF
+		}
+
+		while (position.column > model.getLineLength(position.row)) {
+
+			if (position.row === model.getLinesCount() - 1) {
+				position.row = model.getLinesCount() - 1;
+				position.column = model.getLineLength(model.getLinesCount() - 1);
+				return;
+			}
+
+			position.column -= model.getLineLength(position.row) + 1; //+1 for CRLF
+			position.row++;
+		}
+	};
+
+	NoteViewCursorView.prototype.setSelection = function(startRow, startColumn, endRow, endColumn) {
+		var start = this.selection.start,
+			end = this.selection.end;
+
+		if (arguments.length === 4) {
+
+			start.row = arguments[0];
+			start.column = arguments[1];
+			end.row = arguments[2];
+			end.column = arguments[3];
+			return;
+
+		} else if (typeof arguments[0] === "number") {
+
+			start.row = arguments[0];
+			start.column = arguments[1];
+			end.row = arguments[0];
+			end.column = arguments[1];
+
+		} else {
+
+			start.row = arguments[0].row;
+			start.column = arguments[0].column;
+			end.row = arguments[1].row;
+			end.column = arguments[1].column;
+
+		}
+
+		this.update();
+	};
+
+	/*-------------------------------------------------
+	 *	update
+	 */
+	NoteViewCursorView.prototype.update = function() {
+		if (!this.targetTextBox) return;
+
+		var renderingInfo = this.targetTextBox.renderingInfo,
+			start = this.selection.start,
+			end = this.selection.end,
+			position,
+			x, y, h;
+
+		if (this.selection.direction === DIR.FORWARD) {
+			position = end;
+		} else {
+			position = start;
+		}
+
+		this.__positionNormalize(position, false);
+		y = renderingInfo[position.row].top;
+		h = renderingInfo[position.row].height;
+		x = this.convertPointToScreenPosition(position) - 1;
+
+		this.__$base.css({
+			left: x,
+			top: y,
+			height: h
+		});
+
+		this.show();
+		document.title = "Lines " + position.row + ", Columns " + position.column;
+	};
+
+	NoteViewCursorView.prototype.convertPointToScreenPosition = function(position) {
+		if (!this.targetTextBox) return;
+
+		var renderingInfo = this.targetTextBox.renderingInfo,
+			row = position.row,
+			column = position.column,
+			x, y;
+
+		y = renderingInfo[row].top;
+
+		var offset = 0,
+			marker = this.__$marker[0],
+			flagFinish = false,
+			NODETYPE_TEXT = 3;
+
+		function detectXposition(rootNode) {
+			var children = rootNode.childNodes
+			for (var i = 0, max = children.length; i < max; i++) {
+				var child = children[i];
+
+				if (offset === column) {
+					rootNode.insertBefore(marker, child);
+					flagFinish = true;
+					return;
+				}
+
+				if (child.nodeType === NODETYPE_TEXT) {
+					if (offset === column) {
+						rootNode.insertBefore(marker, child);
+						flagFinish = true;
+						return;
+
+					} else if (offset + child.length > column) {
+						rootNode.insertBefore(marker, child.splitText(column - offset));
+						flagFinish = true;
+						return;
+
+					} else {
+						offset += child.length;
+
+					}
+				} else {
+					if (child.classList.contains(NoteViewScopeParser.IconScopeClass)) {
+						offset += 1;
+					} else {
+						detectXposition(child);
+						if (flagFinish) return
+					}
+				}
+			}
+		}
+
+		this.__$marker.remove();
+		detectXposition(renderingInfo[row].node);
+
+		if (!flagFinish) {
+			this.__$marker.appendTo(renderingInfo[row].node);
+		}
+
+		return this.__$marker.getBoundingClientRectBy(renderingInfo[row].node).left;
+	};
+
+	return NoteViewCursorView
+}());
 ;var NoteViewTextbox = (function() {
 
-	//static variables
-	var $textarea = $("<textarea class='NoteViewTextbox-textarea'></textarea>")
-		.appendTo(document.body),
-
-		textarea = $textarea[0],
-
-		$cursor = $("<div class='NoteViewTextbox-Cursor'></div>"),
-
-		lastSelectionStart = -1;
-
-
-	function NoteViewTextbox() {
+	function NoteViewTextbox(cursor) {
 		this.super();
+
 		this.__$base = $("<div class='NoteViewTextbox-base'></div>");
 		this.__$base.bind("click", this.__click, this, true);
 		this.__$base.bind("mousedown", this.__mousedown, this, true);
 
-		this.__$markdown = $("<div class='NoteViewTextbox-markdown'></div>")
-		this.__$markdown.appendTo(this.__$base);
+		this.__$resizeHandle = $("<div class='NoteViewTextbox-resizeHandle'></div>")
+		this.__$resizeHandle.appendTo(this.__$base);
+		this.__$resizeHandle.bind("mousedown", this.__mousedownResizeHandle, this, true);
 
-		this.__kr = new KeyRecognizer();
-		this.__kr.register({
-			"shift+tab": this.__inputDeleteTab,
-			"tab": this.__inputTab,
-			"enter": this.__inputEnter
-		}, this);
+		this.__$textLayer = $("<div class='NoteViewTextbox-textLayer'></div>")
+		this.__$textLayer.appendTo(this.__$base);
+		this.__$cursorLayer = $("<div class='NoteViewTextbox-cursorLayer'></div>")
+		this.__$cursorLayer.appendTo(this.__$base);
 
-		this.__dragging = {
-			startX: null,
-			startY: null,
-			startMX: null,
-			startMY: null,
-		};
+		this.cursor = cursor;
+
+		this.renderingInfo = [];
 	}
 	extendClass(NoteViewTextbox, View);
 
 	NoteViewTextbox.prototype.bindModel = function(model) {
 		this.model = model;
 		model.view = this;
+		model.__receiver = this.__receiver;
+
 		this.model.bind("update", this.update, this);
 
 		this.update();
@@ -1243,94 +1987,28 @@ var ModelTest = (function() {
 		ev.stopPropagation();
 	};
 
-	NoteViewTextbox.prototype.__input = function(ev) {
-		this.model.text = textarea.value;
-	};
-
-	NoteViewTextbox.prototype.__blurTextArea = function(ev) {
-		this.lostFocus();
-	};
-
-	NoteViewTextbox.prototype.__inputTab = function(ev) {
-		var val = textarea.value,
-			selectionStart = textarea.selectionStart;
-
-		textarea.value =
-			val.slice(0, textarea.selectionStart) +
-			"\t" +
-			val.slice(textarea.selectionEnd)
-
-		textarea.selectionStart =
-			textarea.selectionEnd =
-			selectionStart + 1;
-
-		this.model.text = textarea.value;
-		ev.preventDefault();
-	};
-
-	NoteViewTextbox.prototype.__inputDeleteTab = function(ev) {
-		var val = textarea.value,
-			selectionStart = textarea.selectionStart;
-
-		var lastLine = val.slice(0, textarea.selectionStart).split("\n").pop(),
-			len = lastLine.length,
-			indentLevel = lastLine.match(/^\t*/)[0].length;
-
-		if (indentLevel > 0) {
-			textarea.value =
-				val.slice(0, textarea.selectionStart - len) +
-				lastLine.slice(1) +
-				val.slice(textarea.selectionEnd)
-
-			textarea.selectionStart =
-				textarea.selectionEnd =
-				selectionStart - 1;
-
-			this.model.text = textarea.value;
-		}
-		ev.preventDefault();
-	};
-
-	NoteViewTextbox.prototype.__inputEnter = function(ev) {
-		var val = textarea.value,
-			selectionStart = textarea.selectionStart;
-
-		var lastLine = val.slice(0, textarea.selectionStart).split("\n").pop(),
-			indentLevel = lastLine.match(/^\t*/)[0].length;
-
-		textarea.value =
-			val.slice(0, textarea.selectionStart) +
-			"\n" + Array(indentLevel + 1).join("\t") +
-			val.slice(textarea.selectionEnd)
-
-		textarea.selectionStart =
-			textarea.selectionEnd =
-			selectionStart + 1 + indentLevel;
-
-		this.model.text = textarea.value;
-		ev.preventDefault();
-	};
-
 	NoteViewTextbox.prototype.__mousedown = function(ev) {
 		this.__$base.addClass("-drag");
 
-		document.body.bind("mousemove", this.__mousemoveForMove, this, true);
-		document.body.bind("mouseup", this.__mouseupForMove, this, true);
+		document.body.bind("mousemove", this.__mousemove, this, true);
+		document.body.bind("mouseup", this.__mouseup, this, true);
 
 		this.__startMX = ev.x;
 		this.__startMY = ev.y;
 		this.__startX = parseInt(this.__$base.css("left"));
 		this.__startY = parseInt(this.__$base.css("top"));
+
+		ev.stopPropagation();
 	};
 
-	NoteViewTextbox.prototype.__mouseupForMove = function(ev) {
+	NoteViewTextbox.prototype.__mouseup = function(ev) {
 		this.__$base.removeClass("-drag");
 
-		document.body.unbind("mousemove", this.__mousemoveForMove, this, true);
-		document.body.unbind("mouseup", this.__mouseupForMove, this, true);
+		document.body.unbind("mousemove", this.__mousemove, this, true);
+		document.body.unbind("mouseup", this.__mouseup, this, true);
 	};
 
-	NoteViewTextbox.prototype.__mousemoveForMove = function(ev) {
+	NoteViewTextbox.prototype.__mousemove = function(ev) {
 		var x = Math.round((this.__startX + (ev.x - this.__startMX)) / GRID_SIZE) * GRID_SIZE,
 			y = Math.round((this.__startY + (ev.y - this.__startMY)) / GRID_SIZE) * GRID_SIZE;
 
@@ -1341,6 +2019,34 @@ var ModelTest = (function() {
 		this.model.y = y;
 	};
 
+	NoteViewTextbox.prototype.__mousedownResizeHandle = function(ev) {
+		this.__$base.addClass("-drag");
+
+		document.body.bind("mousemove", this.__mousemoveResizeHandle, this, true);
+		document.body.bind("mouseup", this.__mouseupResizeHandle, this, true);
+
+		this.__startMX = ev.x;
+		this.__startW = parseInt(this.model.w);
+
+		ev.stopPropagation();
+	};
+
+	NoteViewTextbox.prototype.__mouseupResizeHandle = function(ev) {
+		this.__$base.removeClass("-drag");
+
+		document.body.unbind("mousemove", this.__mousemoveResizeHandle, this, true);
+		document.body.unbind("mouseup", this.__mouseupResizeHandle, this, true);
+
+		ev.stopPropagation();
+	};
+
+	NoteViewTextbox.prototype.__mousemoveResizeHandle = function(ev) {
+		var w = this.__startW + Math.round((ev.x - this.__startMX) / GRID_SIZE) * GRID_SIZE;
+
+		if (w < 50) w = 50;
+
+		this.model.w = w;
+	};
 
 	/*-------------------------------------------------
 	 * remove
@@ -1348,6 +2054,10 @@ var ModelTest = (function() {
 	NoteViewTextbox.prototype.remove = function() {
 		this.__$base.remove();
 
+		this.__$base.unbind("click", this.__click, this, true);
+		this.__$base.unbind("mousedown", this.__mousedown, this, true);
+		this.__$resizeHandle.unbind("mousedown", this.__mousedownResizeHandle, this, true);
+		this.model.unbind("update", this.update, this);
 		this.fire("remove", this);
 	};
 
@@ -1355,41 +2065,72 @@ var ModelTest = (function() {
 	 * focus
 	 */
 	NoteViewTextbox.prototype.setFocus = function() {
-		this.model.focus = true;
+		this.cursor.attach(this);
+		this.cursor.setSelection(0, 0);
 
-		$textarea.bind("input", this.__input, this, true);
-		$textarea.bind("blur", this.__blurTextArea, this, true);
-
-		textarea.value = this.model.text;
-		$textarea.focus();
-
-		this.__kr.listen($textarea);
+		this.fire("update", this);
+		this.__$base.addClass("-edit");
 	};
 
 	NoteViewTextbox.prototype.lostFocus = function() {
-		this.model.focus = false;
+		this.cursor.detach(this);
+		this.__$base.removeClass("-edit");
 
-		$textarea.unbind("input", this.__input, this, true);
-		$textarea.unbind("blur", this.__blurTextArea, this, true);
-
-		if (this.model.text === "") this.remove();
-		this.__kr.unlisten($textarea);
+		if (this.model.text.replace(/\s*/g, "") === "") this.remove();
 	};
 
 	/*-------------------------------------------------
 	 * update
 	 */
 	NoteViewTextbox.prototype.update = function() {
-		var model = this.model,
-			text = model.text,
-			html = Markdown.parse(text);
-
-		this.__$base.toggleClass("-edit", model.focus);
-		this.__$markdown.html(html);
-		this.setPosition(model.x, model.y);
+		this.updateBase();
+		this.updateTextLayer();
 
 		this.fire("update", this);
 	};
+
+	NoteViewTextbox.prototype.updateTextLayer = function() {
+		var lines = this.model.text.split("\n"),
+			top = 0,
+			width = this.model.w;
+
+		this.__$textLayer.children().remove();
+
+		this.renderingInfo = [];
+		for (var i = 0, max = lines.length; i < max; i++) {
+			var lineRenderingInfo = NoteViewScopeParser.convertLineToHTML(lines[i]),
+				$line = $(lineRenderingInfo.html);
+
+			this.renderingInfo.push({
+				top: top,
+				height: lineRenderingInfo.height,
+				node: $line[0]
+			});
+
+			this.__$textLayer.append($line);
+			$line.css({
+				top: top,
+				width: width,
+				height: lineRenderingInfo.height
+			});
+
+			top += lineRenderingInfo.height;
+		};
+		this.__$textLayer.css("height", top);
+	};
+
+	NoteViewTextbox.prototype.updateBase = function() {
+		var model = this.model;
+
+		this.__$base.css({
+			left: model.x,
+			top: model.y,
+			width: model.w,
+			zIndex: model.z
+		});
+	};
+
+
 
 	return NoteViewTextbox;
 }());
@@ -1407,7 +2148,7 @@ var ModelTest = (function() {
 			this.textboxes.push(model);
 		}
 
-		model.bind("update", this.update, this)
+		model.bind("update", this.update, this);
 
 		this.fire("update");
 	};
@@ -1428,13 +2169,22 @@ var ModelTest = (function() {
 
 	return NoteViewPageModel;
 }());
-;GRID_SIZE = 20;
+;/*
+ *	TODO
+ *
+ *	構造の明瞭化
+ *
+ */
+
+GRID_SIZE = 20;
 var NoteView = (function() {
 
 	function NoteView(model) {
 		this.super();
 		this.__$base = $("<div class='NoteView-base'></div>");
 		this.__$base.bind("click", this.__click, this, true);
+
+		this.cursor = new NoteViewCursorView();
 	}
 	extendClass(NoteView, View);
 
@@ -1469,7 +2219,7 @@ var NoteView = (function() {
 
 	NoteView.prototype.__addTextbox = function(model) {
 		var model = model || new NoteViewTextboxModel(),
-			textbox = new NoteViewTextbox();
+			textbox = new NoteViewTextbox(this.cursor);
 
 		textbox.bindModel(model);
 		textbox.appendTo(this);
@@ -1482,6 +2232,7 @@ var NoteView = (function() {
 
 	NoteView.prototype.__removeTextbox = function(textbox) {
 		this.model.removeTextbox(textbox.model);
+		textbox.unbind("remove", this.__removeTextbox, this);
 	};
 
 	NoteView.prototype.update = function() {
@@ -1490,23 +2241,370 @@ var NoteView = (function() {
 
 	return NoteView;
 }());
-;;/*
+;;var AlertView = (function() {
+
+	function AlertView() {
+		this.super();
+
+		this.__$base = $("<div class='AlertView-base'></div>");
+
+		this.__$text = $("<span class='AlertView-text'></span>");
+		this.__$text.appendTo(this.__$base)
+	}
+	extendClass(AlertView, View);
+
+	AlertView.prototype.show = function(text, duration) {
+		this.__$text.text(text);
+		this.__$base.addClass("-show");
+
+		var that = this;
+		setTimeout(function() {
+			that.hide()
+		}, duration || 3000);
+	};
+
+	AlertView.prototype.showError = function(text, duration) {
+		this.__$base.addClass("-error");
+		this.show(text, duration);
+	};
+
+	AlertView.prototype.hide = function(text) {
+		this.__$base.removeClass("-show");
+		this.__$base.removeClass("-error");
+	};
+
+	return AlertView;
+}());
+;var DialogView = (function() {
+
+	function DialogView() {
+		this.super();
+
+		this.__$outer = $("<div class='DialogView-outer'></div>");
+		this.__$outer.bind("click", this.__clickOuter, this, true);
+
+		this.__$base = $("<div class='DialogView-base'></div>");
+		this.__$base.appendTo(this.__$outer);
+		this.__$base.bind("click", this.__clickBase, this, true);
+
+		this.__$header = $("<header class='DialogView-header'></header>");
+		this.__$header.appendTo(this.__$base);
+
+		this.__$title = $("<span class='DialogView-title'>ダイアログタイトル</span>");
+		this.__$title.appendTo(this.__$header);
+
+		this.__$body = $("<div class='DialogView-body'></div>");
+		this.__$body.appendTo(this.__$base);
+
+		this.__$footer = $("<footer class='DialogView-footer'></footer>");
+		this.__$footer.appendTo(this.__$base);
+
+		this.__btnCancel = new ButtonView("Cancel");
+		this.__btnCancel.appendTo(this.__$footer);
+		this.__btnCancel.bind("click", this.__clickBtnCancel, this);
+
+		this.__btnOK = new ButtonView("OK");
+		this.__btnOK.appendTo(this.__$footer);
+		this.__btnOK.bind("click", this.__clickBtnOK, this);
+	}
+	extendClass(DialogView, View);
+
+	//override
+	DialogView.prototype.append = DialogView.prototype.appendChild = function(child) {
+		child.appendTo(this.__$body);
+	};
+
+	//override
+	DialogView.prototype.appendTo = function(parent) {
+		parent.appendChild(this.__$outer);
+	};
+
+	/*-------------------------------
+	 * イベントハンドラ
+	 */
+	DialogView.prototype.__clickOuter = function(ev) {
+		ev.stopPropagation();
+		this.fire("cancel", this.fire);
+		this.fadeOut();
+	};
+
+	DialogView.prototype.__clickBase = function(ev) {
+		ev.stopPropagation();
+	};
+
+	DialogView.prototype.__clickBtnOK = function(ev) {
+		ev.stopPropagation();
+		this.fire("success", this.fire);
+		this.fadeOut();
+	};
+
+	DialogView.prototype.__clickBtnCancel = function(ev) {
+		ev.stopPropagation();
+		this.fire("cancel", this.fire);
+		this.fadeOut();
+	};
+
+	/*-------------------------------
+	 * 表示非表示
+	 */
+	DialogView.prototype.show = function() {
+		this.__$outer.addClass("-show");
+		this.__$outer.css("opacity", "");
+	};
+
+	DialogView.prototype.hide = function() {
+		this.__$outer.removeClass("-show");
+		this.__$outer.css("opacity", "");
+	};
+
+	DialogView.prototype.fadeOut = function() {
+		this.__$outer.animate(function(x) {
+			this.css("opacity", 1.0 - x);
+		}, 100);
+		this.__$outer.one("AnimationCompleted", this.hide, this);
+	};
+
+	DialogView.prototype.fadeIn = function() {
+		this.__$outer.css("opacity", 0);
+		this.__$outer.addClass("-show");
+		this.__$outer.animate(function(x) {
+			this.css("opacity", x);
+		}, 100);
+		this.__$outer.one("AnimationCompleted", this.show, this);
+	};
+
+	DialogView.prototype.title = function(title) {
+		this.__$title.text(title);
+	}
+
+	return DialogView;
+}());
+;var NewFileDialogView = (function() {
+
+	function NewFileDialogView() {
+		this.super();
+		this.title("新規ファイルを作成");
+
+		this.__$input = "";
+
+		this.__$body.append($("<span>編集中のノートは失われてしまいます。よろしいですか？</span>"));
+	}
+	extendClass(NewFileDialogView, DialogView);
+
+	return NewFileDialogView;
+}());
+;var TreeViewNodeViewModel = (function() {
+	function TreeViewNodeViewModel() {
+		this.children = [];
+		this.parent = null;
+	}
+	extendClass(TreeViewNodeViewModel, Model);
+	IPubSub.implement(TreeViewNodeViewModel.prototype);
+
+	TreeViewNodeViewModel.__record("title");
+
+	TreeViewNodeViewModel.prototype.appendChild = function(child) {
+		if (this.children.indexOf(child) !== -1) return
+		if (child.parent) child.parent.removeChild(child);
+
+		this.children.push(child);
+		child.parent = this;
+
+		this.fire("updateTree", this);
+		child.fire("updateTree", this);
+	};
+
+	TreeViewNodeViewModel.prototype.removeChild = function(child) {
+		var index = this.children.indexOf(child);
+		if (index === -1) return
+
+		this.children.splice(index, 1);
+		child.parent = null;
+
+		this.fire("updateTree", this);
+		child.fire("updateTree", this);
+	};
+
+	return TreeViewNodeViewModel;
+}());
+;/*
+ *	TODO:
+ *
+ *	updateが走りすぎている
+ *	再描画タイミングの最適化
+ *
+ *	モデル - ビュー間の構造の簡潔化
+ *
+ */
+
+var TreeView = (function() {
+	function TreeView(title) {
+		this.__$base = $("<div class='TreeView-base'></div>");
+
+		this.rootNode = new TreeViewNodeView(title);
+		this.rootNode.appendTo(this);
+		this.rootNode.treeView = this;
+	};
+	extendClass(TreeView, View);
+
+	IPubSub.attachShortHandle(TreeView.prototype, [
+		"click"
+	]);
+
+	return TreeView
+}());
+
+var TreeViewNodeView = (function() {
+	function TreeViewNodeView(title) {
+		this.treeView = null;
+
+		this.__$base = $("<li class='TreeViewNodeView-base -open'></li>");
+		this.__$base.bind("click", this.__clickBase, this, true);
+
+		this.__$title = $("<p class='TreeViewNodeView-title'></p>");
+		this.__$title.appendTo(this.__$base);
+
+		this.__$titleIcon = $("<i class='TreeViewNodeView-title-icon'></i>");
+		this.__$titleIcon.appendTo(this.__$title);
+
+		this.__$titleText = $("<span class='TreeViewNodeView-title-text'></span>");
+		this.__$titleText.appendTo(this.__$title);
+
+		this.__$children = $("<ul class='TreeViewNodeView-children'></ul>");
+		this.__$children.appendTo(this.__$base);
+
+		this.model = new TreeViewNodeViewModel();
+		this.model.bind("update", this.__updateModel, this);
+		this.model.bind("updateTree", this.__updateTreeModel, this);
+		this.model.title = title;
+
+		this.__isOpen = true;
+		this.__originalHeight = null;
+	};
+	extendClass(TreeViewNodeView, View);
+
+	//override
+	TreeViewNodeView.prototype.appendChild = function(node) {
+		node.appendTo(this.__$children);
+	};
+
+	/*-------------------------------------------------
+	 * append/remove node
+	 */
+	TreeViewNodeView.prototype.appendNode = function(title) {
+		var child = new TreeViewNodeView(title);
+
+		child.appendTo(this);
+		child.treeView = this.treeView;
+		this.model.appendChild(child.model);
+
+		return child;
+	};
+
+	TreeViewNodeView.prototype.removeNode = function(child) {
+		this.model.removeChild(child.model);
+		child.treeView = null;
+		child.remove();
+	};
+
+	/*-------------------------------------------------
+	 * Event Handlers
+	 */
+
+	TreeViewNodeView.prototype.__updateModel = function() {
+		this.update();
+	};
+
+	TreeViewNodeView.prototype.__updateTreeModel = function() {
+		this.__$base.toggleClass("-hasChild", this.model.children.length > 0);
+	};
+
+	TreeViewNodeView.prototype.__clickBase = function(ev) {
+		this.fire("click", ev);
+		if (this.treeView) this.treeView.fire("click", this);
+
+		this.toggle();
+
+		ev.stopPropagation();
+	};
+
+	IPubSub.attachShortHandle(TreeViewNodeView.prototype, [
+		"click"
+	]);
+
+	/*-------------------------------------------------
+	 * open / close
+	 */
+
+	TreeViewNodeView.prototype.toggle = function() {
+		if (this.__isOpen) {
+			this.close();
+		} else {
+			this.open();
+		}
+	};
+
+	TreeViewNodeView.prototype.open = function() {
+		this.__$children.slideDown();
+		this.__$children.fadeIn();
+		this.__$base.addClass("-open");
+		this.__$base.removeClass("-close");
+
+		this.__isOpen = true;
+	};
+
+	TreeViewNodeView.prototype.close = function() {
+		this.__$children.slideUp();
+		this.__$children.fadeOut();
+		this.__$base.removeClass("-open");
+		this.__$base.addClass("-close");
+
+		this.__isOpen = false;
+	};
+
+	/*-------------------------------------------------
+	 * update
+	 */
+
+	TreeViewNodeView.prototype.update = function() {
+		this.__$titleText.text(this.model.title);
+	};
+
+	/*-------------------------------------------------
+	 * remove
+	 */
+
+	TreeViewNodeView.prototype.remove = function() {
+		this.super();
+		this.__$base.unbind("click", this.__clickBase, this, true);
+		this.model.unbind("update", this.__updateModel, this);
+	};
+
+	return TreeViewNodeView
+}());
+;/*
 test data
-
-{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array","value":[{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":0},"_text":{"type":"native","value":"#Marknote\nマークダウンで手軽に綺麗にノートをとれるウェブアプリ\n===\nver. 0.1.1\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":160},"_text":{"type":"native","value":"\t#実装済みの機能\n\t-テキストエディット(カーソルが表示されない)\n\t\t-対応しているmarkdown記法\n\t\t\t-#ヘッダ\n\t\t\t--箇条書き\n\t-テキストボックスの再配置\n\t-セーブ/ロード\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":560},"_y":{"type":"native","value":320},"_text":{"type":"native","value":"\t#プロジェクトの情報\n-開発者 きくらげ(twitter: @mr_temperman)\n-\tgithub https://github.com/kikura-yuichiro/marknote"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":530},"_y":{"type":"native","value":330},"_text":{"type":"native","value":" "},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":560},"_y":{"type":"native","value":0},"_text":{"type":"native","value":"\t#使い方\n\t普通にノートが取れる。\n\t\n\t文頭に以下の記号を用いると特殊なスタイルに変換される\n\t-# ヘッダ\n\t\t-ヘッダは#1コしか認識しない\n\t\t-ヘッダのレベルはタブインデントにより制御する\n\t-- 箇条書き\n\t\t-こちらも同じくタブインデントでレベルを制御"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":20},"_y":{"type":"native","value":420},"_text":{"type":"native","value":"\t#今後つくろうと思っている機能\n\t-markdown記法の拡張\n\t\t-(画像)[url]による画像の挿入\n\t\t-表組み機能\t\n\t\t\t-表組みはmarkdownとしてではなく実装したい\n\t\n\t-Export機能\n\t\t-PDF/HTML/MD\n\t-ブック管理機能\n\t"},"_focus":{"type":"native","value":false}}}]}}}
-
 */
+var sample = '{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array","value":[{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":0},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"#Marknote\\nマークダウンで手軽に綺麗にノートをとれるウェブアプリ\\nver. 0.1.1\\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":140},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#実装済みの機能\\n\\t-テキストエディット\\n\\t\\t-対応しているmarkdown記法\\n\\t\\t\\t-# ヘッダ\\n\\t\\t\\t\\tヘッダは#1個のみ。\\n\\t\\t\\t\\tインデントのレベルでヘッダレベルを調整\\n\\t\\t\\t-- 箇条書き\\n\\t-テキストボックスの再配置\\n\\t-セーブ/ロード\\n"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":680},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#プロジェクトの情報\\n-開発者 きくらげ(twitter: @mr_temperman)\\n-github https://github.com/kikura-yuichiro/marknote"},"_focus":{"type":"native","value":false}}},{"type":"NoteViewTextboxModel","value":{"_x":{"type":"native","value":0},"_y":{"type":"native","value":420},"_z":{"type":"native","value":0},"_w":{"type":"native","value":400},"_text":{"type":"native","value":"\\t#今後つくろうと思っている機能\\n\\t-markdown記法の拡張\\n\\t\\t-(画像)[url]による画像の挿入\\n\\t\\t-表組み機能\\t\\n\\t\\t\\t-表組みはmarkdownとしてではなく実装したい\\n\\t-Export機能\\n\\t\\t-PDF/HTML/MD\\n\\t-ブック管理機能"},"_focus":{"type":"native","value":false}}}]}}}';
+
 
 var app = (function() {
 
 	var app = {};
 
 	app.init = function() {
+
+		//-------------------------------
+		//ToolbarView
+
 		var toolbar = new ToolbarView();
 		toolbar.setID("toolbar");
 		toolbar.append($("#logo"));
 		toolbar.insertBefore($("#maincontainer"));
 		app.toolbar = toolbar;
+
+		//-------------------------------
+		//ButtonView
 
 		var btnNewFile = new ButtonView("新規作成(&#8963;&#8984;N)");
 		btnNewFile.appendTo(toolbar);
@@ -1533,21 +2631,43 @@ var app = (function() {
 		btnExport.bind("click", app.exportFile, app);
 		app.btnExport = btnExport;
 
-		var sideMenu = new SideMenuView();
-		sideMenu.setID("sidemenu");
-		sideMenu.__$base.css("marginLeft", -200);
-		sideMenu.appendTo($("#maincontainer"));
-		app.sideMenu = sideMenu;
-
 		var btnToggleSideMenu = new ButtonView("メニューの開閉(&#8963;&#8984;T)");
 		btnToggleSideMenu.appendTo(toolbar);
 		btnToggleSideMenu.bind("click", app.toggleSideMenu, app);
 		app.btnToggleSideMenu = btnToggleSideMenu;
 
+		//-------------------------------
+		//SideMenuView
+
+		var sideMenu = new SideMenuView();
+		sideMenu.setID("sidemenu");
+		sideMenu.appendTo($("#maincontainer"));
+		app.sideMenu = sideMenu;
+
+		//-------------------------------
+		//TreeView
+
+		var treeView = new TreeView("root");
+		treeView.appendTo(sideMenu);
+
+		node1 = treeView.rootNode.appendNode("node1");
+		node2 = treeView.rootNode.appendNode("node2");
+		for (var i = 0; i < 10; i++) {
+			node1.appendNode("node1-" + i);
+		}
+		treeView.click(function(node) {
+			console.log("click -> " + node.model.title);
+		})
+		//-------------------------------
+		//NoteView
+
 		var noteView = new NoteView();
 		noteView.setID("noteview");
 		noteView.appendTo($("#maincontainer"));
 		app.noteView = noteView;
+
+		//-------------------------------
+		//KeyRecognizer
 
 		var kr = new KeyRecognizer();
 		kr.listen(document.body);
@@ -1558,44 +2678,67 @@ var app = (function() {
 			"ctrl+cmd+T": app.toggleSideMenu,
 		}, app);
 		app.kr = kr;
+
+		//-------------------------------
+		//AlertView
+
+		var alertView = new AlertView();
+		alertView.appendTo($("body"));
+		app.alertView = alertView;
+
+
+		var savedata = Model.load("test");
+
+		if (savedata) {
+			app.noteView.bindModel(savedata);
+			app.alertView.show("読み込みました");
+		} else {
+			savedata = Model.convertFromNativeObject(JSON.parse(sample));
+			app.noteView.bindModel(savedata);
+			app.alertView.show("marknoteへようこそ");
+		}
 	};
 
 	app.saveFile = function(ev) {
-		console.log("セーブ");
-		app.noteView.model.save("test");
 
+		app.noteView.model.save("test");
+		app.alertView.show("保存しました");
 		if (ev) ev.preventDefault();
 	};
 
 	app.openFile = function(ev) {
-		console.log("開く");
 		var savedata = Model.load("test");
+
 		if (!savedata) {
-			console.log("セーブデータが存在しません");
+			app.alertView.showError("セーブデータが存在しません");
 			return;
 		}
 		app.noteView.bindModel(savedata);
+		app.alertView.show("読み込みました");
 
 		if (ev) ev.preventDefault();
 	};
 
 	app.newFile = function(ev) {
-		console.log("新規作成");
-		app.noteView.bindModel(new NoteViewPageModel());
+		var dialog = new NewFileDialogView()
+		dialog.appendTo($("body"));
+		dialog.one("success", app.createNewFile, app);
+		dialog.fadeIn();
+	};
 
-		if (ev) ev.preventDefault();
+	app.createNewFile = function(fileName) {
+		app.alertView.show("新規作成");
+		app.noteView.bindModel(new NoteViewPageModel());
 	};
 
 	app.importFile = function(ev) {
-		console.log("Import");
-		console.log("未実装");
+		app.alertView.show("Import(未実装)");
 
 		if (ev) ev.preventDefault();
 	};
 
 	app.exportFile = function(ev) {
-		console.log("Export");
-		console.log("未実装");
+		app.alertView.show("Export(未実装)");
 
 		if (ev) ev.preventDefault();
 	};
@@ -1603,7 +2746,7 @@ var app = (function() {
 	app.toggleSideMenu = function(ev) {
 		var sideMenu = app.sideMenu;
 
-		if (sideMenu.__$base.css("marginLeft") === "-200px") {
+		if (sideMenu.__$base.css("marginLeft") === -200) {
 			sideMenu.__$base.animate(function(x) {
 				this.css("marginLeft", -200 * (1 - x * x) + "px");
 			}, 100);

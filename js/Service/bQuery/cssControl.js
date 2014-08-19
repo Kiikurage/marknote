@@ -1,10 +1,10 @@
 (function() {
 	var cssValueNormalize = (function() {
-		var regCssNoUnit = /^(?:opacity|z-index)$/;
+		var regCssNoUnit = /^(?:opacity|zIndex)$/;
 
 		return function cssValueNormalize(key, value) {
 			if (typeof value === "number" &&
-				!regCssNoUnit.test(value)) {
+				!regCssNoUnit.test(key)) {
 				value = "" + value + "px";
 			}
 			return value;
@@ -23,7 +23,14 @@
 
 			} else if (arguments.length === 1) {
 
-				return getComputedStyle(this[0])[key];
+				var val = getComputedStyle(this[0])[key],
+					valAsNumber = parseFloat(val);
+
+				if (val !== NaN) {
+					return valAsNumber
+				} else {
+					return val
+				}
 
 			} else {
 

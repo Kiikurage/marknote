@@ -1,5 +1,13 @@
+/*
+ *	TODO
+ *
+ *	構造の明瞭化
+ *
+ */
+
 //#include("/View/View.js");
 //#include("/View/NoteView/NoteViewTextbox.js");
+//#include("/View/NoteView/NoteViewCursorView.js");
 //#include("/Model/NoteViewPageModel.js");
 
 GRID_SIZE = 20;
@@ -9,6 +17,8 @@ var NoteView = (function() {
 		this.super();
 		this.__$base = $("<div class='NoteView-base'></div>");
 		this.__$base.bind("click", this.__click, this, true);
+
+		this.cursor = new NoteViewCursorView();
 	}
 	extendClass(NoteView, View);
 
@@ -43,7 +53,7 @@ var NoteView = (function() {
 
 	NoteView.prototype.__addTextbox = function(model) {
 		var model = model || new NoteViewTextboxModel(),
-			textbox = new NoteViewTextbox();
+			textbox = new NoteViewTextbox(this.cursor);
 
 		textbox.bindModel(model);
 		textbox.appendTo(this);
@@ -56,6 +66,7 @@ var NoteView = (function() {
 
 	NoteView.prototype.__removeTextbox = function(textbox) {
 		this.model.removeTextbox(textbox.model);
+		textbox.unbind("remove", this.__removeTextbox, this);
 	};
 
 	NoteView.prototype.update = function() {

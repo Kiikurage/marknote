@@ -14,10 +14,22 @@
 		},
 		toggleClass: function(klass, flag) {
 			if (arguments.length == 2) {
-				if (flag) {
-					return this.addClass(klass)
+				if (typeof flag === "boolean") {
+					if (flag) {
+						return this.addClass(klass)
+					} else {
+						return this.removeClass(klass)
+					}
 				} else {
-					return this.removeClass(klass)
+					this.map(function(node) {
+						if (node.classList.contains(klass)) {
+							node.classList.remove(klass);
+							node.classList.add(flag);
+						} else {
+							node.classList.add(klass);
+							node.classList.remove(flag);
+						}
+					});
 				}
 			} else {
 				this.map(function(node) {

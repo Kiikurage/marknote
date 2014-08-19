@@ -8,6 +8,10 @@ var View = (function() {
 	}
 	IPubSub.implement(View.prototype);
 
+	/*-------------------------------------
+	 *	layout setting
+	 */
+
 	View.prototype.append = View.prototype.appendChild = function(child) {
 		child.appendTo(this.__$base);
 	};
@@ -23,6 +27,10 @@ var View = (function() {
 	View.prototype.insertAfter = function(refElement) {
 		this.__$base.insertAfter(refElement);
 	};
+
+	/*-------------------------------------
+	 *	property setting
+	 */
 
 	View.prototype.setID = function(id) {
 		this.__$base.attr("id", id);
@@ -40,6 +48,22 @@ var View = (function() {
 			width: width,
 			height: height
 		});
+	};
+
+	View.prototype.setWidth = function(width) {
+		this.__$base.css("width", width);
+	};
+
+	View.prototype.setHeight = function(height) {
+		this.__$base.css("height", height);
+	};
+
+	/*-------------------------------------
+	 *	remove
+	 */
+
+	View.prototype.remove = function() {
+		this.removeEventListenerAll();
 	};
 
 	return View;
