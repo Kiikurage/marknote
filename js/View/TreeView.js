@@ -12,9 +12,11 @@
 //#include("/Model/TreeViewNodeViewModel.js");
 
 var TreeView = (function() {
-	function TreeView(root) {
+	function TreeView(title) {
 		this.__$base = $("<div class='TreeView'></div>");
-		root.view.appendTo(this);
+
+		this.rootNode = new TreeViewNodeView(title);
+		this.rootNode.appendTo(this);
 	};
 	extendClass(TreeView, View);
 
@@ -22,44 +24,75 @@ var TreeView = (function() {
 }());
 
 var TreeViewNodeView = (function() {
-	function TreeViewNodeView(model) {
+	function TreeViewNodeView(title) {
 		this.__$base = $("<li></li>");
-		model.bind("update", this.__updateModel, this);
+		this.__$base.bind("click", this.__clickBase, this, true);
+
+		this.__$title = $("<p></p>");
+		this.__$title.appendTo(this.__$base);
+
+		this.__$children = $("<ul></ul>");
+		this.__$children.appendTo(this.__$base);
+
+		this.model = new TreeViewNodeViewModel();
+		this.model.bind("update", this.__updateModel, this);
+		this.model.title = title;
 	};
 	extendClass(TreeViewNodeView, View);
 
-	TreeViewNodeView.prototype.__updateModel = function(model) {
-		this.update(model);
+	//override
+	TreeViewNodeView.prototype.appendChild = function(node) {
+		node.appendTo(this.__$children);
 	};
 
-	TreeViewNodeView.prototype.update = function(model) {
-		var $mainContent = this.delegateUpdateMainContent(model),
-			$childContent = this.delegateUpdateChildContent(model),
-			$totalContent = this.delegateUpdateTotalContent($mainContent, $childContent);
+	/*-------------------------------------------------
+	 * append/remove node
+	 */
+	TreeViewNodeView.prototype.appendNode = function(title) {
+		var child = new TreeViewNodeView(title);
+
+		child.appendTo(this);
+		this.model.appendChild(child.model);
+
+		return child;
 	};
 
-	TreeViewNodeView.prototype.delegateUpdateMainContent = function(model) {
-		return $("<p>" + model.data + "</p>");
+	TreeViewNodeView.prototype.removeNode = function(child) {
+		this.model.removeChild(child.model);
 	};
 
-	TreeViewNodeView.prototype.delegateUpdateChildContent = function(model) {
-		var children = model.children;
+	/*-------------------------------------------------
+	 * Event Handlers
+	 */
 
-		if (!children.length) return $();
-
-		var $container = $("<ul></ul>");
-
-		for (var i = 0, max = children.length; i < max; i++) {
-			children[i].view.appendTo($container);
-		}
-
-		return $container;
+	TreeViewNodeView.prototype.__updateModel = function() {
+		this.update();
 	};
 
-	TreeViewNodeView.prototype.delegateUpdateTotalContent = function($mainContent, $childContent) {
-		this.__$base.children().remove();
-		this.__$base.append($mainContent);
-		this.__$base.append($childContent);
+	TreeViewNodeView.prototype.__clickBase = function(ev) {
+		this.fire("click", ev);
+	};
+
+	IPubSub.attachShortHandle(TreeViewNodeView.prototype, [
+		"click"
+	]);
+
+	/*-------------------------------------------------
+	 * update
+	 */
+
+	TreeViewNodeView.prototype.update = function() {
+		this.__$title.text(this.model.title);
+	};
+
+	/*-------------------------------------------------
+	 * remove
+	 */
+
+	TreeViewNodeView.prototype.remove = function() {
+		this.super();
+		this.__$base.unbind("click", this.__clickBase, this, true);
+		this.model.unbind("update", this.__updateModel, this);
 	};
 
 	return TreeViewNodeView

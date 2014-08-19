@@ -45,10 +45,14 @@
 			trueContext = searchTrueContext(fakeContext, arguments.callee.caller);
 		if (!trueContext) throw new Error("Can't get true context.");
 
-		var superContext = getPrototype(trueContext),
-			superMethod = funcName ? superContext[funcName] : superContext.constructor;
+		funcName = funcName || arguments.callee.caller.name;
 
-		if (typeof superMethod !== "function") return;
+		var superContext = getPrototype(trueContext),
+			superMethod = superContext[funcName]
+
+		if (typeof superMethod !== "function") {
+			superMethod = superContext.constructor;
+		}
 
 		return superMethod.apply(fakeContext, args);
 	};
@@ -109,7 +113,7 @@
 
 	function getPublisherId(target, flagCreate) {
 		var res = target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
-		publisherList[res] = target;
+		if (res) publisherList[res] = target;
 
 		return res;
 	}
@@ -196,6 +200,10 @@
 		if (!Object.keys(callbackList).length) {
 			delete callbackDict[publisherID];
 			delete publisherList[publisherID];
+
+			if (nativeCallbackList) {
+				delete nativeCallbackDict[publisherID];
+			}
 		};
 	};
 
@@ -224,6 +232,51 @@
 		callbackList[type] = firedArr;
 	};
 
+	exports.attachShortHandle = function(target, types) {
+		types.forEach(function(type) {
+			target[type] = function(fn, context) {
+				if (typeof fn === "function") {
+					this.bind(type, fn, context || this);
+				} else {
+					this.fire(type);
+				};
+			}
+		});
+	};
+
+	exports.removeEventListenerAll = function(publisher) {
+		var publisherID = getPublisherId(publisher);
+		if (!publisherID) return;
+
+		var callbackList = callbackDict[publisherID];
+		if (!callbackList) return
+
+		var nativeCallbackList = nativeCallbackDict[publisherID];
+
+		for (var type in callbackList) {
+			if (!callbackList.hasOwnProperty(type)) continue;
+
+			if (nativeCallbackList) {
+				var nativeCallback = nativeCallbackList[type];
+				if (nativeCallback) {
+					publisher.removeEventListener(type, nativeCallback);
+					nativeCallback = nativeCallbackList[type] = null;
+				}
+			}
+
+			delete callbackList[type];
+			if (!Object.keys(callbackList).length) {
+				delete callbackDict[publisherID];
+				delete publisherList[publisherID];
+
+				if (nativeCallbackList) {
+					delete nativeCallbackDict[publisherID];
+				}
+			};
+		}
+
+	};
+
 	exports.implement = function(target) {
 		target.bind = function(type, fn, context, isNative) {
 			IPubSub.bind(this, type, fn, context, isNative);
@@ -244,6 +297,9 @@
 			IPubSub.fire(this, type, args);
 			return this;
 		};
+		target.removeEventListenerAll = function() {
+			IPubSub.removeEventListenerAll(target);
+		}
 	};
 
 	return exports;
@@ -626,6 +682,10 @@
 	}
 	IPubSub.implement(View.prototype);
 
+	/*-------------------------------------
+	 *	layout setting
+	 */
+
 	View.prototype.append = View.prototype.appendChild = function(child) {
 		child.appendTo(this.__$base);
 	};
@@ -641,6 +701,10 @@
 	View.prototype.insertAfter = function(refElement) {
 		this.__$base.insertAfter(refElement);
 	};
+
+	/*-------------------------------------
+	 *	property setting
+	 */
 
 	View.prototype.setID = function(id) {
 		this.__$base.attr("id", id);
@@ -666,6 +730,14 @@
 
 	View.prototype.setHeight = function(height) {
 		this.__$base.css("height", height);
+	};
+
+	/*-------------------------------------
+	 *	remove
+	 */
+
+	View.prototype.remove = function() {
+		this.removeEventListenerAll();
 	};
 
 	return View;
@@ -2248,20 +2320,21 @@ var NoteView = (function() {
 	function TreeViewNodeViewModel() {
 		this.children = [];
 		this.parent = null;
-		this.data = null;
-		this.view = new TreeViewNodeView(this);
 	}
+	extendClass(TreeViewNodeViewModel, Model);
 	IPubSub.implement(TreeViewNodeViewModel.prototype);
+
+	TreeViewNodeViewModel.__record("title");
 
 	TreeViewNodeViewModel.prototype.appendChild = function(child) {
 		if (this.children.indexOf(child) !== -1) return
-		if (child.parent) chld.parent.removeChild(child);
+		if (child.parent) child.parent.removeChild(child);
 
 		this.children.push(child);
-		child.parent = child;
+		child.parent = this;
 
-		this.update();
-		child.update();
+		this.fire("updateTree", this);
+		child.fire("updateTree", this);
 	};
 
 	TreeViewNodeViewModel.prototype.removeChild = function(child) {
@@ -2271,12 +2344,9 @@ var NoteView = (function() {
 		this.children.splice(index, 1);
 		child.parent = null;
 
-		this.update();
+		this.fire("updateTree", this);
+		child.fire("updateTree", this);
 	};
-
-	TreeViewNodeViewModel.prototype.update = function() {
-		this.fire("update", this);
-	}
 
 	return TreeViewNodeViewModel;
 }());
@@ -2291,9 +2361,11 @@ var NoteView = (function() {
  */
 
 var TreeView = (function() {
-	function TreeView(root) {
+	function TreeView(title) {
 		this.__$base = $("<div class='TreeView'></div>");
-		root.view.appendTo(this);
+
+		this.rootNode = new TreeViewNodeView(title);
+		this.rootNode.appendTo(this);
 	};
 	extendClass(TreeView, View);
 
@@ -2301,44 +2373,75 @@ var TreeView = (function() {
 }());
 
 var TreeViewNodeView = (function() {
-	function TreeViewNodeView(model) {
+	function TreeViewNodeView(title) {
 		this.__$base = $("<li></li>");
-		model.bind("update", this.__updateModel, this);
+		this.__$base.bind("click", this.__clickBase, this, true);
+
+		this.__$title = $("<p></p>");
+		this.__$title.appendTo(this.__$base);
+
+		this.__$children = $("<ul></ul>");
+		this.__$children.appendTo(this.__$base);
+
+		this.model = new TreeViewNodeViewModel();
+		this.model.bind("update", this.__updateModel, this);
+		this.model.title = title;
 	};
 	extendClass(TreeViewNodeView, View);
 
-	TreeViewNodeView.prototype.__updateModel = function(model) {
-		this.update(model);
+	//override
+	TreeViewNodeView.prototype.appendChild = function(node) {
+		node.appendTo(this.__$children);
 	};
 
-	TreeViewNodeView.prototype.update = function(model) {
-		var $mainContent = this.delegateUpdateMainContent(model),
-			$childContent = this.delegateUpdateChildContent(model),
-			$totalContent = this.delegateUpdateTotalContent($mainContent, $childContent);
+	/*-------------------------------------------------
+	 * append/remove node
+	 */
+	TreeViewNodeView.prototype.appendNode = function(title) {
+		var child = new TreeViewNodeView(title);
+
+		child.appendTo(this);
+		this.model.appendChild(child.model);
+
+		return child;
 	};
 
-	TreeViewNodeView.prototype.delegateUpdateMainContent = function(model) {
-		return $("<p>" + model.data + "</p>");
+	TreeViewNodeView.prototype.removeNode = function(child) {
+		this.model.removeChild(child.model);
 	};
 
-	TreeViewNodeView.prototype.delegateUpdateChildContent = function(model) {
-		var children = model.children;
+	/*-------------------------------------------------
+	 * Event Handlers
+	 */
 
-		if (!children.length) return $();
-
-		var $container = $("<ul></ul>");
-
-		for (var i = 0, max = children.length; i < max; i++) {
-			children[i].view.appendTo($container);
-		}
-
-		return $container;
+	TreeViewNodeView.prototype.__updateModel = function() {
+		this.update();
 	};
 
-	TreeViewNodeView.prototype.delegateUpdateTotalContent = function($mainContent, $childContent) {
-		this.__$base.children().remove();
-		this.__$base.append($mainContent);
-		this.__$base.append($childContent);
+	TreeViewNodeView.prototype.__clickBase = function(ev) {
+		this.fire("click", ev);
+	};
+
+	IPubSub.attachShortHandle(TreeViewNodeView.prototype, [
+		"click"
+	]);
+
+	/*-------------------------------------------------
+	 * update
+	 */
+
+	TreeViewNodeView.prototype.update = function() {
+		this.__$title.text(this.model.title);
+	};
+
+	/*-------------------------------------------------
+	 * remove
+	 */
+
+	TreeViewNodeView.prototype.remove = function() {
+		this.super();
+		this.__$base.unbind("click", this.__clickBase, this, true);
+		this.model.unbind("update", this.__updateModel, this);
 	};
 
 	return TreeViewNodeView
@@ -2402,47 +2505,20 @@ var app = (function() {
 
 		var sideMenu = new SideMenuView();
 		sideMenu.setID("sidemenu");
-		sideMenu.__$base.css("marginLeft", -200);
 		sideMenu.appendTo($("#maincontainer"));
 		app.sideMenu = sideMenu;
 
 		//-------------------------------
 		//TreeView
 
-		root = new TreeViewNodeViewModel();
-		root.data = "root";
-
-		node1 = new TreeViewNodeViewModel();
-		node1.data = "node1";
-		root.appendChild(node1);
-
-		node2 = new TreeViewNodeViewModel();
-		node2.data = "node2";
-		root.appendChild(node2);
-
-		node21 = new TreeViewNodeViewModel();
-		node21.data = "node2-1";
-		node2.appendChild(node21);
-
-		node22 = new TreeViewNodeViewModel();
-		node22.data = {
-			title: "node2-2",
-			text: "Hello World"
-		};
-		node22.view.delegateUpdateMainContent = function(model) {
-			var $title = $("<p>" + model.data.title + "</p>"),
-				$text = $("<div>" + model.data.text + "</div>");
-
-			return $([
-				$title,
-				$text
-			]);
-		};
-		node2.appendChild(node22);
-
-		var treeView = new TreeView(root);
+		var treeView = new TreeView("root");
 		treeView.appendTo(sideMenu);
 
+		node1 = treeView.rootNode.appendNode("node1");
+		node2 = treeView.rootNode.appendNode("node2");
+
+		node21 = node2.appendNode("node2-1");
+		node22 = node2.appendNode("node2-2");
 		//-------------------------------
 		//NoteView
 

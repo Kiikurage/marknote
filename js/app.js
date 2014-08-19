@@ -66,47 +66,20 @@ var app = (function() {
 
 		var sideMenu = new SideMenuView();
 		sideMenu.setID("sidemenu");
-		sideMenu.__$base.css("marginLeft", -200);
 		sideMenu.appendTo($("#maincontainer"));
 		app.sideMenu = sideMenu;
 
 		//-------------------------------
 		//TreeView
 
-		root = new TreeViewNodeViewModel();
-		root.data = "root";
-
-		node1 = new TreeViewNodeViewModel();
-		node1.data = "node1";
-		root.appendChild(node1);
-
-		node2 = new TreeViewNodeViewModel();
-		node2.data = "node2";
-		root.appendChild(node2);
-
-		node21 = new TreeViewNodeViewModel();
-		node21.data = "node2-1";
-		node2.appendChild(node21);
-
-		node22 = new TreeViewNodeViewModel();
-		node22.data = {
-			title: "node2-2",
-			text: "Hello World"
-		};
-		node22.view.delegateUpdateMainContent = function(model) {
-			var $title = $("<p>" + model.data.title + "</p>"),
-				$text = $("<div>" + model.data.text + "</div>");
-
-			return $([
-				$title,
-				$text
-			]);
-		};
-		node2.appendChild(node22);
-
-		var treeView = new TreeView(root);
+		var treeView = new TreeView("root");
 		treeView.appendTo(sideMenu);
 
+		node1 = treeView.rootNode.appendNode("node1");
+		node2 = treeView.rootNode.appendNode("node2");
+
+		node21 = node2.appendNode("node2-1");
+		node22 = node2.appendNode("node2-2");
 		//-------------------------------
 		//NoteView
 

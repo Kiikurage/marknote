@@ -11,7 +11,7 @@ var IPubSub = (function(exports) {
 
 	function getPublisherId(target, flagCreate) {
 		var res = target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
-		publisherList[res] = target;
+		if (res) publisherList[res] = target;
 
 		return res;
 	}
@@ -98,6 +98,10 @@ var IPubSub = (function(exports) {
 		if (!Object.keys(callbackList).length) {
 			delete callbackDict[publisherID];
 			delete publisherList[publisherID];
+
+			if (nativeCallbackList) {
+				delete nativeCallbackDict[publisherID];
+			}
 		};
 	};
 
@@ -126,6 +130,51 @@ var IPubSub = (function(exports) {
 		callbackList[type] = firedArr;
 	};
 
+	exports.attachShortHandle = function(target, types) {
+		types.forEach(function(type) {
+			target[type] = function(fn, context) {
+				if (typeof fn === "function") {
+					this.bind(type, fn, context || this);
+				} else {
+					this.fire(type);
+				};
+			}
+		});
+	};
+
+	exports.removeEventListenerAll = function(publisher) {
+		var publisherID = getPublisherId(publisher);
+		if (!publisherID) return;
+
+		var callbackList = callbackDict[publisherID];
+		if (!callbackList) return
+
+		var nativeCallbackList = nativeCallbackDict[publisherID];
+
+		for (var type in callbackList) {
+			if (!callbackList.hasOwnProperty(type)) continue;
+
+			if (nativeCallbackList) {
+				var nativeCallback = nativeCallbackList[type];
+				if (nativeCallback) {
+					publisher.removeEventListener(type, nativeCallback);
+					nativeCallback = nativeCallbackList[type] = null;
+				}
+			}
+
+			delete callbackList[type];
+			if (!Object.keys(callbackList).length) {
+				delete callbackDict[publisherID];
+				delete publisherList[publisherID];
+
+				if (nativeCallbackList) {
+					delete nativeCallbackDict[publisherID];
+				}
+			};
+		}
+
+	};
+
 	exports.implement = function(target) {
 		target.bind = function(type, fn, context, isNative) {
 			IPubSub.bind(this, type, fn, context, isNative);
@@ -146,6 +195,9 @@ var IPubSub = (function(exports) {
 			IPubSub.fire(this, type, args);
 			return this;
 		};
+		target.removeEventListenerAll = function() {
+			IPubSub.removeEventListenerAll(target);
+		}
 	};
 
 	return exports;
