@@ -19,7 +19,6 @@ var NoteViewTextbox = (function() {
 
 		this.__$textLayer = $("<div class='NoteViewTextbox-textLayer'></div>")
 		this.__$textLayer.appendTo(this.__$base);
-
 		this.__$cursorLayer = $("<div class='NoteViewTextbox-cursorLayer'></div>")
 		this.__$cursorLayer.appendTo(this.__$base);
 
@@ -114,6 +113,10 @@ var NoteViewTextbox = (function() {
 	NoteViewTextbox.prototype.remove = function() {
 		this.__$base.remove();
 
+		this.__$base.unbind("click", this.__click, this, true);
+		this.__$base.unbind("mousedown", this.__mousedown, this, true);
+		this.__$resizeHandle.unbind("mousedown", this.__mousedownResizeHandle, this, true);
+		this.model.unbind("update", this.update, this);
 		this.fire("remove", this);
 	};
 

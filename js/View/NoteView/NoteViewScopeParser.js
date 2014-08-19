@@ -1,16 +1,21 @@
 var NoteViewScopeParser = (function(exports) {
+	var IS_ICON_SCOPE = true;
+
+	exports.IconScopeClass = "NoteViewTextbox-scope-icon";
 
 	exports.convertLineToHTML = function(line) {
 		var scope = [],
 			height = 24,
 			res = "";
 
+		//indent
 		while (line[0] === "\t") {
 			line = line.slice(1);
-			var inner = wrapWithScope("", ["NoteViewTextbox-scope-symbolblock-indent-inner"]);
-			res += wrapWithScope(inner, ["NoteViewTextbox-scope-symbolblock", "NoteViewTextbox-scope-symbolblock-indent"]);
+			var inner = wrapWithScope("", ["NoteViewTextbox-scope-indent-inner"]);
+			res += wrapWithScope(inner, ["NoteViewTextbox-scope-indent"], IS_ICON_SCOPE);
 		}
 
+		//header
 		var headerLevel = 0;
 		while (line[headerLevel] === "#") {
 			headerLevel++;
@@ -20,11 +25,11 @@ var NoteViewScopeParser = (function(exports) {
 			height = [65, 62, 20][headerLevel - 1];
 		}
 
+		//list
 		if (line[0] === "-") {
 			line = line.slice(1);
-			scope.push("NoteViewTextbox-scope-list");
-			var inner = wrapWithScope("", ["NoteViewTextbox-scope-symbolblock-list-inner"]);
-			res += wrapWithScope(inner, ["NoteViewTextbox-scope-symbolblock", "NoteViewTextbox-scope-symbolblock-list"]);
+			var inner = wrapWithScope("", ["NoteViewTextbox-scope-list-inner"]);
+			res += wrapWithScope(inner, ["NoteViewTextbox-scope-list"], IS_ICON_SCOPE);
 		}
 
 		line = line.replace(/\s/g, "&nbsp;");
@@ -41,12 +46,14 @@ var NoteViewScopeParser = (function(exports) {
 		}
 	};
 
-	function wrapWithScope(text, scope) {
+	function wrapWithScope(text, scope, isIconScope) {
 		var scopes = ["NoteViewTextbox-scope"];
 
 		if (scope) scopes = scopes.concat(scope);
+		if (isIconScope) scopes.push(NoteViewScopeParser.IconScopeClass);
 
-		return "<span class='" + scopes.join(" ") + "'>" + text + "</span>"
+
+		return "<span class='" + scopes.join(" ") + "'>" + text + "</span>";
 	}
 
 	return exports;

@@ -14,7 +14,7 @@ var NoteViewPageModel = (function() {
 			this.textboxes.push(model);
 		}
 
-		model.bind("update", this.update, this)
+		model.bind("update", this.update, this);
 
 		this.fire("update");
 	};

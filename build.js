@@ -45,10 +45,14 @@
 			trueContext = searchTrueContext(fakeContext, arguments.callee.caller);
 		if (!trueContext) throw new Error("Can't get true context.");
 
-		var superContext = getPrototype(trueContext),
-			superMethod = funcName ? superContext[funcName] : superContext.constructor;
+		funcName = funcName || arguments.callee.caller.name;
 
-		if (typeof superMethod !== "function") return;
+		var superContext = getPrototype(trueContext),
+			superMethod = superContext[funcName]
+
+		if (typeof superMethod !== "function") {
+			superMethod = superContext.constructor;
+		}
 
 		return superMethod.apply(fakeContext, args);
 	};
@@ -100,18 +104,25 @@
 ;var IPubSub = (function(exports) {
 
 	var callbackDict = {};
+	var publisherList = {};
 	var nativeCallbackDict = {};
 	var guid = 0;
 
-	function getPublihserId(target, flagCreate) {
-		return target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
+	window.callbackDict = callbackDict;
+	window.publisherList = publisherList
+
+	function getPublisherId(target, flagCreate) {
+		var res = target._publisherID || (flagCreate ? target._publisherID = ++guid : undefined);
+		if (res) publisherList[res] = target;
+
+		return res;
 	}
 
 	exports.bind = function(publisher, type, fn, context, isNative) {
 		//Prevent for register duplication
 		exports.unbind(publisher, type, fn, context);
 
-		var publisherID = getPublihserId(publisher, true);
+		var publisherID = getPublisherId(publisher, true);
 
 		var callbackList = callbackDict[publisherID];
 		if (!callbackList) {
@@ -153,7 +164,7 @@
 	};
 
 	exports.unbind = function(publisher, type, fn, context) {
-		var publisherID = getPublihserId(publisher);
+		var publisherID = getPublisherId(publisher);
 		if (!publisherID) return;
 
 		var callbackList = callbackDict[publisherID];
@@ -184,10 +195,20 @@
 				nativeCallback = nativeCallbackList[type] = null;
 			}
 		}
+
+		delete callbackList[type];
+		if (!Object.keys(callbackList).length) {
+			delete callbackDict[publisherID];
+			delete publisherList[publisherID];
+
+			if (nativeCallbackList) {
+				delete nativeCallbackDict[publisherID];
+			}
+		};
 	};
 
 	exports.fire = function(publisher, type, argArr) {
-		var publisherID = getPublihserId(publisher);
+		var publisherID = getPublisherId(publisher);
 		if (!publisherID) return;
 
 		var callbackList = callbackDict[publisherID];
@@ -211,6 +232,50 @@
 		callbackList[type] = firedArr;
 	};
 
+	exports.attachShortHandle = function(target, types) {
+		types.forEach(function(type) {
+			target[type] = function(fn, context) {
+				if (typeof fn === "function") {
+					this.bind(type, fn, context || this);
+				} else {
+					this.fire(type);
+				};
+			}
+		});
+	};
+
+	exports.removeEventListenerAll = function(publisher) {
+		var publisherID = getPublisherId(publisher);
+		if (!publisherID) return;
+
+		var callbackList = callbackDict[publisherID];
+		if (!callbackList) return
+
+		var nativeCallbackList = nativeCallbackDict[publisherID];
+
+		for (var type in callbackList) {
+			if (!callbackList.hasOwnProperty(type)) continue;
+
+			if (nativeCallbackList) {
+				var nativeCallback = nativeCallbackList[type];
+				if (nativeCallback) {
+					publisher.removeEventListener(type, nativeCallback);
+					nativeCallback = nativeCallbackList[type] = null;
+				}
+			}
+
+			delete callbackList[type];
+			if (!Object.keys(callbackList).length) {
+				delete callbackDict[publisherID];
+				delete publisherList[publisherID];
+
+				if (nativeCallbackList) {
+					delete nativeCallbackDict[publisherID];
+				}
+			};
+		}
+	};
+
 	exports.implement = function(target) {
 		target.bind = function(type, fn, context, isNative) {
 			IPubSub.bind(this, type, fn, context, isNative);
@@ -231,6 +296,9 @@
 			IPubSub.fire(this, type, args);
 			return this;
 		};
+		target.removeEventListenerAll = function() {
+			IPubSub.removeEventListenerAll(target);
+		}
 	};
 
 	return exports;
@@ -293,13 +361,17 @@
 		merge: function(arr) {
 			for (var i = 0, max = arr.length; i < max; i++) {
 				if (this.indexOf(arr[i]) >= 0) continue;
-				this.push(arr[i]);
+				if (arr[i] instanceof HTMLElement) {
+					this.push(arr[i]);
+				} else if (arr[i] instanceof bQuery) {
+					this.merge(arr[i]);
+				}
 			}
 			return this;
 		},
 		map: function(fn) {
 			for (var i = 0, max = this.length; i < max; i++) {
-				fn(this[i]);
+				fn(this[i], i);
 			}
 			return this;
 		},
@@ -330,6 +402,8 @@
 				var res = new bQuery();
 				res.push(query);
 				return res;
+			} else if (query instanceof Array) {
+				return (new bQuery()).merge(query);
 			}
 		}
 
@@ -484,10 +558,22 @@
 		},
 		toggleClass: function(klass, flag) {
 			if (arguments.length == 2) {
-				if (flag) {
-					return this.addClass(klass)
+				if (typeof flag === "boolean") {
+					if (flag) {
+						return this.addClass(klass)
+					} else {
+						return this.removeClass(klass)
+					}
 				} else {
-					return this.removeClass(klass)
+					this.map(function(node) {
+						if (node.classList.contains(klass)) {
+							node.classList.remove(klass);
+							node.classList.add(flag);
+						} else {
+							node.classList.add(klass);
+							node.classList.remove(flag);
+						}
+					});
 				}
 			} else {
 				this.map(function(node) {
@@ -553,13 +639,25 @@
 	});
 }());
 ;(function() {
+	var easing = {
+		easeInOutQuint: function(t, b, c, d) {
+			x = t / d;
+			return x > 0.5 ?
+				1 - 8 * (x -= 1) * x * x * x :
+				8 * x * x * x * x;
+		}
+	};
+
 	extend(bQuery.prototype, {
-		animate: function(fn, duration) {
+		animate: function(fn, duration, easingType) {
 
 			var that = this,
+				duration = duration || 300,
+				easingType = easingType || "easeInOutQuint",
 				core = function() {
 					var n = +(new Date()),
-						x = (n - s > duration) ? 1 : (n - s) / duration;
+						x = (n - s > duration) ? 1 : easing[easingType](n - s, 0, 1, duration)
+
 
 					fn.call(that, x);
 
@@ -599,6 +697,60 @@
 			return this;
 		}
 	});
+
+	extend(bQuery.prototype, {
+		slideUp: function(duration) {
+			var originalHeights = [],
+				that = this;
+
+			this.map(function(element, i) {
+				originalHeights[i] = parseInt(getComputedStyle(element).height);
+			});
+			this.one("AnimationCompleted", function() {
+				this.css("height", 0);
+			}, this);
+			that.animate(function(x) {
+				this.map(function(element, i) {
+					element.style.height = originalHeights[i] * (1.0 - x) + "px";
+				});
+			}, duration);
+		},
+		slideDown: function(duration) {
+			var currentHeights = [],
+				originalHeights = [],
+				that = this;
+
+			this.map(function(element, i) {
+				currentHeights[i] = parseInt(getComputedStyle(element).height);
+			});
+
+			this.css({
+				height: "",
+				display: "block",
+				visibility: "hidden",
+				position: "absolute",
+			});
+			this.one("AnimationCompleted", function() {
+				this.css("height", "");
+			}, this);
+
+			setTimeout(function() {
+				that.map(function(element, i) {
+					originalHeights[i] = parseInt(getComputedStyle(element).height);
+					element.style.height = currentHeights[i] + "px";
+					element.style.display = "";
+					element.style.visibility = "";
+					element.style.position = "";
+				});
+
+				that.animate(function(x) {
+					this.map(function(element, i) {
+						element.style.height = originalHeights[i] * x + currentHeights[i] * (1.0 - x) + "px";
+					});
+				}, duration);
+			}, 0);
+		}
+	});
 }());
 ;;var View = (function() {
 
@@ -606,6 +758,10 @@
 
 	}
 	IPubSub.implement(View.prototype);
+
+	/*-------------------------------------
+	 *	layout setting
+	 */
 
 	View.prototype.append = View.prototype.appendChild = function(child) {
 		child.appendTo(this.__$base);
@@ -622,6 +778,10 @@
 	View.prototype.insertAfter = function(refElement) {
 		this.__$base.insertAfter(refElement);
 	};
+
+	/*-------------------------------------
+	 *	property setting
+	 */
 
 	View.prototype.setID = function(id) {
 		this.__$base.attr("id", id);
@@ -647,6 +807,14 @@
 
 	View.prototype.setHeight = function(height) {
 		this.__$base.css("height", height);
+	};
+
+	/*-------------------------------------
+	 *	remove
+	 */
+
+	View.prototype.remove = function() {
+		this.removeEventListenerAll();
 	};
 
 	return View;
@@ -793,6 +961,66 @@ var TabPanelView = (function() {
 
 	return ButtonView;
 }());
+;var NoteViewScopeParser = (function(exports) {
+	var IS_ICON_SCOPE = true;
+
+	exports.IconScopeClass = "NoteViewTextbox-scope-icon";
+
+	exports.convertLineToHTML = function(line) {
+		var scope = [],
+			height = 24,
+			res = "";
+
+		//indent
+		while (line[0] === "\t") {
+			line = line.slice(1);
+			var inner = wrapWithScope("", ["NoteViewTextbox-scope-indent-inner"]);
+			res += wrapWithScope(inner, ["NoteViewTextbox-scope-indent"], IS_ICON_SCOPE);
+		}
+
+		//header
+		var headerLevel = 0;
+		while (line[headerLevel] === "#") {
+			headerLevel++;
+		}
+		if (headerLevel) {
+			scope.push("NoteViewTextbox-scope-header" + headerLevel);
+			height = [65, 62, 20][headerLevel - 1];
+		}
+
+		//list
+		if (line[0] === "-") {
+			line = line.slice(1);
+			var inner = wrapWithScope("", ["NoteViewTextbox-scope-list-inner"]);
+			res += wrapWithScope(inner, ["NoteViewTextbox-scope-list"], IS_ICON_SCOPE);
+		}
+
+		line = line.replace(/\s/g, "&nbsp;");
+
+		line = line.replace(/\*[^\*]*\*/g, function(outer) {
+			return wrapWithScope(outer, ["NoteViewTextbox-scope-bold"]);
+		});
+
+		res += wrapWithScope(line, scope);
+
+		return {
+			html: "<p class='NoteViewTextbox-line'>" + res + "</p>",
+			height: height
+		}
+	};
+
+	function wrapWithScope(text, scope, isIconScope) {
+		var scopes = ["NoteViewTextbox-scope"];
+
+		if (scope) scopes = scopes.concat(scope);
+		if (isIconScope) scopes.push(NoteViewScopeParser.IconScopeClass);
+
+
+		return "<span class='" + scopes.join(" ") + "'>" + text + "</span>";
+	}
+
+	return exports;
+}({}));
 ;var Markdown = (function() {
 	var TokenType = {
 		NormalText: 0,
@@ -1695,7 +1923,7 @@ var NoteViewCursorView = (function() {
 
 					}
 				} else {
-					if (child.classList.contains("NoteViewTextbox-scope-symbolblock")) {
+					if (child.classList.contains(NoteViewScopeParser.IconScopeClass)) {
 						offset += 1;
 					} else {
 						detectXposition(child);
@@ -1717,59 +1945,6 @@ var NoteViewCursorView = (function() {
 
 	return NoteViewCursorView
 }());
-;var NoteViewScopeParser = (function(exports) {
-
-	exports.convertLineToHTML = function(line) {
-		var scope = [],
-			height = 24,
-			res = "";
-
-		while (line[0] === "\t") {
-			line = line.slice(1);
-			var inner = wrapWithScope("", ["NoteViewTextbox-scope-symbolblock-indent-inner"]);
-			res += wrapWithScope(inner, ["NoteViewTextbox-scope-symbolblock", "NoteViewTextbox-scope-symbolblock-indent"]);
-		}
-
-		var headerLevel = 0;
-		while (line[headerLevel] === "#") {
-			headerLevel++;
-		}
-		if (headerLevel) {
-			scope.push("NoteViewTextbox-scope-header" + headerLevel);
-			height = [65, 62, 20][headerLevel - 1];
-		}
-
-		if (line[0] === "-") {
-			line = line.slice(1);
-			scope.push("NoteViewTextbox-scope-list");
-			var inner = wrapWithScope("", ["NoteViewTextbox-scope-symbolblock-list-inner"]);
-			res += wrapWithScope(inner, ["NoteViewTextbox-scope-symbolblock", "NoteViewTextbox-scope-symbolblock-list"]);
-		}
-
-		line = line.replace(/\s/g, "&nbsp;");
-
-		line = line.replace(/\*[^\*]*\*/g, function(outer) {
-			return wrapWithScope(outer, ["NoteViewTextbox-scope-bold"]);
-		});
-
-		res += wrapWithScope(line, scope);
-
-		return {
-			html: "<p class='NoteViewTextbox-line'>" + res + "</p>",
-			height: height
-		}
-	};
-
-	function wrapWithScope(text, scope) {
-		var scopes = ["NoteViewTextbox-scope"];
-
-		if (scope) scopes = scopes.concat(scope);
-
-		return "<span class='" + scopes.join(" ") + "'>" + text + "</span>"
-	}
-
-	return exports;
-}({}));
 ;var NoteViewTextbox = (function() {
 
 	function NoteViewTextbox(cursor) {
@@ -1785,7 +1960,6 @@ var NoteViewCursorView = (function() {
 
 		this.__$textLayer = $("<div class='NoteViewTextbox-textLayer'></div>")
 		this.__$textLayer.appendTo(this.__$base);
-
 		this.__$cursorLayer = $("<div class='NoteViewTextbox-cursorLayer'></div>")
 		this.__$cursorLayer.appendTo(this.__$base);
 
@@ -1880,6 +2054,10 @@ var NoteViewCursorView = (function() {
 	NoteViewTextbox.prototype.remove = function() {
 		this.__$base.remove();
 
+		this.__$base.unbind("click", this.__click, this, true);
+		this.__$base.unbind("mousedown", this.__mousedown, this, true);
+		this.__$resizeHandle.unbind("mousedown", this.__mousedownResizeHandle, this, true);
+		this.model.unbind("update", this.update, this);
 		this.fire("remove", this);
 	};
 
@@ -1970,7 +2148,7 @@ var NoteViewCursorView = (function() {
 			this.textboxes.push(model);
 		}
 
-		model.bind("update", this.update, this)
+		model.bind("update", this.update, this);
 
 		this.fire("update");
 	};
@@ -1991,7 +2169,14 @@ var NoteViewCursorView = (function() {
 
 	return NoteViewPageModel;
 }());
-;GRID_SIZE = 20;
+;/*
+ *	TODO
+ *
+ *	構造の明瞭化
+ *
+ */
+
+GRID_SIZE = 20;
 var NoteView = (function() {
 
 	function NoteView(model) {
@@ -2047,6 +2232,7 @@ var NoteView = (function() {
 
 	NoteView.prototype.__removeTextbox = function(textbox) {
 		this.model.removeTextbox(textbox.model);
+		textbox.unbind("remove", this.__removeTextbox, this);
 	};
 
 	NoteView.prototype.update = function() {
@@ -2207,6 +2393,195 @@ var NoteView = (function() {
 
 	return NewFileDialogView;
 }());
+;var TreeViewNodeViewModel = (function() {
+	function TreeViewNodeViewModel() {
+		this.children = [];
+		this.parent = null;
+	}
+	extendClass(TreeViewNodeViewModel, Model);
+	IPubSub.implement(TreeViewNodeViewModel.prototype);
+
+	TreeViewNodeViewModel.__record("title");
+
+	TreeViewNodeViewModel.prototype.appendChild = function(child) {
+		if (this.children.indexOf(child) !== -1) return
+		if (child.parent) child.parent.removeChild(child);
+
+		this.children.push(child);
+		child.parent = this;
+
+		this.fire("updateTree", this);
+		child.fire("updateTree", this);
+	};
+
+	TreeViewNodeViewModel.prototype.removeChild = function(child) {
+		var index = this.children.indexOf(child);
+		if (index === -1) return
+
+		this.children.splice(index, 1);
+		child.parent = null;
+
+		this.fire("updateTree", this);
+		child.fire("updateTree", this);
+	};
+
+	return TreeViewNodeViewModel;
+}());
+;/*
+ *	TODO:
+ *
+ *	updateが走りすぎている
+ *	再描画タイミングの最適化
+ *
+ *	モデル - ビュー間の構造の簡潔化
+ *
+ */
+
+var TreeView = (function() {
+	function TreeView(title) {
+		this.__$base = $("<div class='TreeView-base'></div>");
+
+		this.rootNode = new TreeViewNodeView(title);
+		this.rootNode.appendTo(this);
+		this.rootNode.treeView = this;
+	};
+	extendClass(TreeView, View);
+
+	IPubSub.attachShortHandle(TreeView.prototype, [
+		"click"
+	]);
+
+	return TreeView
+}());
+
+var TreeViewNodeView = (function() {
+	function TreeViewNodeView(title) {
+		this.treeView = null;
+
+		this.__$base = $("<li class='TreeViewNodeView-base -open'></li>");
+		this.__$base.bind("click", this.__clickBase, this, true);
+
+		this.__$title = $("<p class='TreeViewNodeView-title'></p>");
+		this.__$title.appendTo(this.__$base);
+
+		this.__$titleIcon = $("<i class='TreeViewNodeView-title-icon'></i>");
+		this.__$titleIcon.appendTo(this.__$title);
+
+		this.__$titleText = $("<span class='TreeViewNodeView-title-text'></span>");
+		this.__$titleText.appendTo(this.__$title);
+
+		this.__$children = $("<ul class='TreeViewNodeView-children'></ul>");
+		this.__$children.appendTo(this.__$base);
+
+		this.model = new TreeViewNodeViewModel();
+		this.model.bind("update", this.__updateModel, this);
+		this.model.bind("updateTree", this.__updateTreeModel, this);
+		this.model.title = title;
+
+		this.__isOpen = true;
+		this.__originalHeight = null;
+	};
+	extendClass(TreeViewNodeView, View);
+
+	//override
+	TreeViewNodeView.prototype.appendChild = function(node) {
+		node.appendTo(this.__$children);
+	};
+
+	/*-------------------------------------------------
+	 * append/remove node
+	 */
+	TreeViewNodeView.prototype.appendNode = function(title) {
+		var child = new TreeViewNodeView(title);
+
+		child.appendTo(this);
+		child.treeView = this.treeView;
+		this.model.appendChild(child.model);
+
+		return child;
+	};
+
+	TreeViewNodeView.prototype.removeNode = function(child) {
+		this.model.removeChild(child.model);
+		child.treeView = null;
+		child.remove();
+	};
+
+	/*-------------------------------------------------
+	 * Event Handlers
+	 */
+
+	TreeViewNodeView.prototype.__updateModel = function() {
+		this.update();
+	};
+
+	TreeViewNodeView.prototype.__updateTreeModel = function() {
+		this.__$base.toggleClass("-hasChild", this.model.children.length > 0);
+	};
+
+	TreeViewNodeView.prototype.__clickBase = function(ev) {
+		this.fire("click", ev);
+		if (this.treeView) this.treeView.fire("click", this);
+
+		this.toggle();
+
+		ev.stopPropagation();
+	};
+
+	IPubSub.attachShortHandle(TreeViewNodeView.prototype, [
+		"click"
+	]);
+
+	/*-------------------------------------------------
+	 * open / close
+	 */
+
+	TreeViewNodeView.prototype.toggle = function() {
+		if (this.__isOpen) {
+			this.close();
+		} else {
+			this.open();
+		}
+	};
+
+	TreeViewNodeView.prototype.open = function() {
+		this.__$children.slideDown();
+		this.__$children.fadeIn();
+		this.__$base.addClass("-open");
+		this.__$base.removeClass("-close");
+
+		this.__isOpen = true;
+	};
+
+	TreeViewNodeView.prototype.close = function() {
+		this.__$children.slideUp();
+		this.__$children.fadeOut();
+		this.__$base.removeClass("-open");
+		this.__$base.addClass("-close");
+
+		this.__isOpen = false;
+	};
+
+	/*-------------------------------------------------
+	 * update
+	 */
+
+	TreeViewNodeView.prototype.update = function() {
+		this.__$titleText.text(this.model.title);
+	};
+
+	/*-------------------------------------------------
+	 * remove
+	 */
+
+	TreeViewNodeView.prototype.remove = function() {
+		this.super();
+		this.__$base.unbind("click", this.__clickBase, this, true);
+		this.model.unbind("update", this.__updateModel, this);
+	};
+
+	return TreeViewNodeView
+}());
 ;/*
 test data
 */
@@ -2218,11 +2593,18 @@ var app = (function() {
 	var app = {};
 
 	app.init = function() {
+
+		//-------------------------------
+		//ToolbarView
+
 		var toolbar = new ToolbarView();
 		toolbar.setID("toolbar");
 		toolbar.append($("#logo"));
 		toolbar.insertBefore($("#maincontainer"));
 		app.toolbar = toolbar;
+
+		//-------------------------------
+		//ButtonView
 
 		var btnNewFile = new ButtonView("新規作成(&#8963;&#8984;N)");
 		btnNewFile.appendTo(toolbar);
@@ -2249,21 +2631,43 @@ var app = (function() {
 		btnExport.bind("click", app.exportFile, app);
 		app.btnExport = btnExport;
 
-		var sideMenu = new SideMenuView();
-		sideMenu.setID("sidemenu");
-		sideMenu.__$base.css("marginLeft", -200);
-		sideMenu.appendTo($("#maincontainer"));
-		app.sideMenu = sideMenu;
-
 		var btnToggleSideMenu = new ButtonView("メニューの開閉(&#8963;&#8984;T)");
 		btnToggleSideMenu.appendTo(toolbar);
 		btnToggleSideMenu.bind("click", app.toggleSideMenu, app);
 		app.btnToggleSideMenu = btnToggleSideMenu;
 
+		//-------------------------------
+		//SideMenuView
+
+		var sideMenu = new SideMenuView();
+		sideMenu.setID("sidemenu");
+		sideMenu.appendTo($("#maincontainer"));
+		app.sideMenu = sideMenu;
+
+		//-------------------------------
+		//TreeView
+
+		var treeView = new TreeView("root");
+		treeView.appendTo(sideMenu);
+
+		node1 = treeView.rootNode.appendNode("node1");
+		node2 = treeView.rootNode.appendNode("node2");
+		for (var i = 0; i < 10; i++) {
+			node1.appendNode("node1-" + i);
+		}
+		treeView.click(function(node) {
+			console.log("click -> " + node.model.title);
+		})
+		//-------------------------------
+		//NoteView
+
 		var noteView = new NoteView();
 		noteView.setID("noteview");
 		noteView.appendTo($("#maincontainer"));
 		app.noteView = noteView;
+
+		//-------------------------------
+		//KeyRecognizer
 
 		var kr = new KeyRecognizer();
 		kr.listen(document.body);
@@ -2275,10 +2679,12 @@ var app = (function() {
 		}, app);
 		app.kr = kr;
 
+		//-------------------------------
+		//AlertView
+
 		var alertView = new AlertView();
 		alertView.appendTo($("body"));
 		app.alertView = alertView;
-
 
 
 		var savedata = Model.load("test");
@@ -2291,7 +2697,6 @@ var app = (function() {
 			app.noteView.bindModel(savedata);
 			app.alertView.show("marknoteへようこそ");
 		}
-
 	};
 
 	app.saveFile = function(ev) {

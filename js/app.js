@@ -11,17 +11,25 @@ var sample = '{"type":"NoteViewPageModel","value":{"_textboxes":{"type":"array",
 //#include("/View/NoteView.js");
 //#include("/View/AlertView.js");
 //#include("/View/NewFileDialogView.js");
+//#include("/View/TreeView.js");
 
 var app = (function() {
 
 	var app = {};
 
 	app.init = function() {
+
+		//-------------------------------
+		//ToolbarView
+
 		var toolbar = new ToolbarView();
 		toolbar.setID("toolbar");
 		toolbar.append($("#logo"));
 		toolbar.insertBefore($("#maincontainer"));
 		app.toolbar = toolbar;
+
+		//-------------------------------
+		//ButtonView
 
 		var btnNewFile = new ButtonView("新規作成(&#8963;&#8984;N)");
 		btnNewFile.appendTo(toolbar);
@@ -48,21 +56,43 @@ var app = (function() {
 		btnExport.bind("click", app.exportFile, app);
 		app.btnExport = btnExport;
 
-		var sideMenu = new SideMenuView();
-		sideMenu.setID("sidemenu");
-		sideMenu.__$base.css("marginLeft", -200);
-		sideMenu.appendTo($("#maincontainer"));
-		app.sideMenu = sideMenu;
-
 		var btnToggleSideMenu = new ButtonView("メニューの開閉(&#8963;&#8984;T)");
 		btnToggleSideMenu.appendTo(toolbar);
 		btnToggleSideMenu.bind("click", app.toggleSideMenu, app);
 		app.btnToggleSideMenu = btnToggleSideMenu;
 
+		//-------------------------------
+		//SideMenuView
+
+		var sideMenu = new SideMenuView();
+		sideMenu.setID("sidemenu");
+		sideMenu.appendTo($("#maincontainer"));
+		app.sideMenu = sideMenu;
+
+		//-------------------------------
+		//TreeView
+
+		var treeView = new TreeView("root");
+		treeView.appendTo(sideMenu);
+
+		node1 = treeView.rootNode.appendNode("node1");
+		node2 = treeView.rootNode.appendNode("node2");
+		for (var i = 0; i < 10; i++) {
+			node1.appendNode("node1-" + i);
+		}
+		treeView.click(function(node) {
+			console.log("click -> " + node.model.title);
+		})
+		//-------------------------------
+		//NoteView
+
 		var noteView = new NoteView();
 		noteView.setID("noteview");
 		noteView.appendTo($("#maincontainer"));
 		app.noteView = noteView;
+
+		//-------------------------------
+		//KeyRecognizer
 
 		var kr = new KeyRecognizer();
 		kr.listen(document.body);
@@ -74,10 +104,12 @@ var app = (function() {
 		}, app);
 		app.kr = kr;
 
+		//-------------------------------
+		//AlertView
+
 		var alertView = new AlertView();
 		alertView.appendTo($("body"));
 		app.alertView = alertView;
-
 
 
 		var savedata = Model.load("test");
@@ -90,7 +122,6 @@ var app = (function() {
 			app.noteView.bindModel(savedata);
 			app.alertView.show("marknoteへようこそ");
 		}
-
 	};
 
 	app.saveFile = function(ev) {
